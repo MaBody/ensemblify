@@ -1,0 +1,14 @@
+name: ensemblify
+channels:
+- bioconda
+- conda-forge
+dependencies:
+- biopython
+- pandas
+- plotly
+- pyarrow
+- seaborn
+- tqdm
+- pypythia[version='=2.0.0']
+- snakemake[version='>=8.9']
+- ipykernel

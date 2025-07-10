@@ -9,6 +9,6 @@ dependencies:
 - pyarrow
 - seaborn
 - tqdm
-- pypythia[version='=2.0.0']
+- pythiaphylopredictor
 - snakemake[version='>=8.9']
 - ipykernel

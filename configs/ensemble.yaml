@@ -1,47 +1,48 @@
-ClustalO:
-  aligner: ClustalO
-  type: "default"
-  params:
-    "--iterations": 6
-    "--max-guidetree-iterations": [1, 2, 3, 4]
-    "--max-hmm-iterations": [1, 2]
+ensemble:
+  ClustalO:
+    aligner: ClustalO
+    type: "default"
+    params:
+      "--iterations": 6
+      "--max-guidetree-iterations": [1, 2, 3, 4]
+      "--max-hmm-iterations": [1, 2]
 
-MAFFT_FFT_NS_2:
-  aligner: MAFFT
-  type: "default"
-  params:
-    "--op": [1.1475, 1.4025, 1.6575, 1.9125]
-    "--ep": [0.0922, 0.1538]
+  MAFFT_FFT_NS_2:
+    aligner: MAFFT
+    type: "default"
+    params:
+      "--op": [1.1475, 1.4025, 1.6575, 1.9125]
+      "--ep": [0.0922, 0.1538]
 
-MAFFT_L_INS_I:
-  aligner: MAFFT
-  type: "default"
-  params:
-    "--localpair": ~
-    "--maxiterate": 1000
-    "--op": [1.1475, 1.4025, 1.6575, 1.9125]
-    "--ep": [0.0922, 0.1538]
+  MAFFT_L_INS_I:
+    aligner: MAFFT
+    type: "default"
+    params:
+      "--localpair": ~
+      "--maxiterate": 1000
+      "--op": [1.1475, 1.4025, 1.6575, 1.9125]
+      "--ep": [0.0922, 0.1538]
 
-MAFFT_G_INS_I:
-  aligner: MAFFT
-  type: "default"
-  params:
-    "--globalpair": ~
-    "--maxiterate": 1000
-    "--op": [1.1475, 1.4025, 1.6575, 1.9125]
-    "--ep": [0.0922, 0.1538]
+  MAFFT_G_INS_I:
+    aligner: MAFFT
+    type: "default"
+    params:
+      "--globalpair": ~
+      "--maxiterate": 1000
+      "--op": [1.1475, 1.4025, 1.6575, 1.9125]
+      "--ep": [0.0922, 0.1538]
 
-Muscle3:
-  aligner: Muscle3
-  type: "default"
-  params:
-    "-weight1": ["clustalw", "none"]
-    "-weight2": ["clustalw", "none"]
-    "-objscore": ["spf", "xp"]
+  Muscle3:
+    aligner: Muscle3
+    type: "default"
+    params:
+      "-weight1": ["clustalw", "none"]
+      "-weight2": ["clustalw", "none"]
+      "-objscore": ["spf", "xp"]
 
-# Muscle5:
-#   aligner: Muscle5
-#   type: "Muscle5"
-#   params:
-#     "-replicates": 2
+  Muscle5:
+    aligner: Muscle5
+    type: "Muscle5"
+    params:
+      "-replicates": 2
 

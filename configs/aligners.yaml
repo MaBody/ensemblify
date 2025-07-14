@@ -1,20 +1,21 @@
-MAFFT:
-    path: /hits/fast/cme/bodynems/tools/mafft/mafft.bat
-    cmd: "{aligner} {options} --thread {threads} {input}"
-    threads: 4
+aligners: 
+    MAFFT:
+        path: /hits/fast/cme/bodynems/tools/mafft/mafft.bat
+        cmd: "{aligner} {options} --thread {threads} {input}"
+        threads: 4
 
-ClustalO:
-    path: /hits/fast/cme/bodynems/tools/clustalo-1.2.4-Ubuntu-x86_64
-    cmd: "{aligner} -i {input} -o {output} -v --force {options} --threads={threads}"
-    threads: 4
+    ClustalO:
+        path: /hits/fast/cme/bodynems/tools/clustalo-1.2.4-Ubuntu-x86_64
+        cmd: "{aligner} -i {input} -o {output} -v --force {options} --threads={threads}"
+        threads: 4
 
-Muscle3:
-    path: /hits/fast/cme/bodynems/tools/muscle3.8.31_i86linux64
-    cmd: "{aligner} {options} -in {input} -out {output}"
-    threads: 1
+    Muscle3:
+        path: /hits/fast/cme/bodynems/tools/muscle3.8.31_i86linux64
+        cmd: "{aligner} {options} -in {input} -out {output}"
+        threads: 1
 
-Muscle5:
-    path: /hits/fast/cme/bodynems/tools/muscle5.1.linux_intel64
-    cmd: "{aligner} -threads {threads} -stratified {options} -align {input} -output {output}"
-    threads: 12
-   
+    Muscle5:
+        path: /hits/fast/cme/bodynems/tools/muscle5.1.linux_intel64
+        cmd: "{aligner} -threads {threads} -stratified {options} -align {input} -output {output}"
+        threads: 8
+    

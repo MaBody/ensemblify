@@ -1,6 +1,5 @@
 from abc import ABC
 from ensemblify import utils
-from Bio import SeqRecord
 from Bio import SeqIO
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
@@ -8,7 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 import random
 import os
-
+import re
 
 class Manager(ABC):
     def __init__(self, config:dict, tool_name:str, in_file:Path, out_dir:Path, log_file:Path, threads:int, shuffle:bool=False):
@@ -25,7 +24,7 @@ class Manager(ABC):
     @classmethod
     def save_ensemble(cls, ensemble_dict: dict[tuple, MultipleSeqAlignment], out_dir:Path):
         for keys, msa in ensemble_dict.items():
-            AlignIO.write(msa, out_dir / ("-".join(map(str, keys)) + ".fasta"), "fasta")
+            AlignIO.write(msa, out_dir / (".".join(map(str, keys)) + ".fasta"), "fasta")
 
 
     def compute(self) -> dict[tuple, MultipleSeqAlignment]:
@@ -68,9 +67,27 @@ class DefaultManager(Manager):
     
         return self.alignments
 
-
 class Muscle5Manager(Manager):
-    pass
+    _REGEX = re.compile(r"\S*\.[a-z]{3,4}\.[0-9]+\.fasta$")
+
+    def compute(self) -> dict[tuple, MultipleSeqAlignment]:
+        self.alignments = {}
+        
+        in_file = self.in_file
+        out_template = self.out_dir / f"msa.@.fasta"
+        
+        assert len(self.variants) == 1, "Explicit Muscle5 variants are not supported (internal variation)."
+        options = self.variants[0]
+
+        cmd = utils.format_cmd(self.config, self.tool_name, options, self.threads, in_file, out_template)
+        utils.run_cmd(cmd, outfile=self.log_file, logfile=self.log_file, log_write_mode="a")
+
+        for i, file_name in enumerate(filter(lambda name: re.match(self._REGEX, name), os.listdir(self.out_dir))):
+            msa = AlignIO.read(self.out_dir / file_name, "fasta")
+            self.alignments[(self.tool_name, i)] = msa
+    
+        return self.alignments
+
 
 
 
@@ -78,61 +95,10 @@ def infer_manager(aligner:str) -> Manager:
     match(aligner):
         case "Muscle5":
             return Muscle5Manager
-        case _: 
+        case "default": 
             return DefaultManager
+        case _:
+            raise NotImplementedError()
         # TODO: Add more manager classes for other alignment programs
 
 
-   
-
-    # def _compute_muscle5(
-    #     self,
-    #     muscle5: ToolEnum,
-    #     out_file: pathlib.Path,
-    #     log_file: pathlib.Path,
-    #     threads: int,
-    # ):
-    #     options = ToolEnum.get_option_variants(muscle5)
-    #     if len(options) > 1:
-    #         raise NotImplementedError(
-    #             "Combinatorial options not implemented for Muscle5"
-    #         )
-    #     options = options[0]
-    #     # Using -stratified for 16 alignments at once
-    #     cmd = self._format_cmd(muscle5, out_file, options, threads)
-    #     if self._benchmarking:
-    #         start = perf_counter()
-    #     features.utils.run_cmd(
-    #         cmd, outfile=log_file, logfile=log_file, log_write_mode="a"
-    #     )
-    #     if self._benchmarking:
-    #         stop = perf_counter()
-    #         self._perf_dict[str(muscle5)].append(stop - start)
-    #     ensemble = Ensemble.from_efa(AlignerEnum.MUSCLE5.path, out_file)
-    #     return ensemble
-
-    # def _format_cmd(
-    #     self,
-    #     tool_enum: ToolEnum,
-    #     out_file: pathlib.Path,
-    #     options: str,
-    #     threads: int,
-    #     index: int = None,
-    # ):
-    #     shuffle_seqs = index is not None
-    #     if shuffle_seqs:
-    #         sequence_records = self._dataset.sequences
-    #         random.shuffle(sequence_records)
-    #         seq_file = out_file.parent / f"sequences.{index}.fasta"
-    #         SeqIO.write(sequence_records, seq_file, format="fasta")
-    #     else:
-    #         seq_file = self._dataset.file_path
-
-    #     kwargs = dict(
-    #         aligner=str(tool_enum.aligner.path),
-    #         input=str(seq_file),
-    #         output=str(out_file),
-    #         options=options,
-    #         threads=threads,
-    #     )
-    #     return ToolEnum.format_cmd(tool_enum, kwargs)

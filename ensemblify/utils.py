@@ -33,7 +33,7 @@ def get_option_variants(params:dict):
                 # If val is list: contains options
                 product_options[key] = val
             else:
-                # Val is assumed to be a single value
+                # val is assumed to be a single value
                 base_options.append(key)
                 base_options.append(str(val))
 

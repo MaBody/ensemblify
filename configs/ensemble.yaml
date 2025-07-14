@@ -39,9 +39,9 @@ Muscle3:
     "-weight2": ["clustalw", "none"]
     "-objscore": ["spf", "xp"]
 
-Muscle5:
-  aligner: Muscle5
-  type: "Muscle5"
-  params:
-    "-replicates": 2
+# Muscle5:
+#   aligner: Muscle5
+#   type: "Muscle5"
+#   params:
+#     "-replicates": 2
 

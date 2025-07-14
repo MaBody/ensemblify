@@ -1,0 +1,105 @@
+configfile: "configs/general.yaml"
+configfile: "configs/aligners.yaml"
+configfile: "configs/ensemble.yaml"
+
+import os
+import pathlib
+import pickle
+from collections import defaultdict
+import pandas as pd
+import numpy as np
+from Bio import AlignIO
+from alignment.alignment import Alignment
+
+from alignment.ensemble import Ensemble, explode_efa
+from alignment.dataset import Dataset
+from alignment.aligner import Aligner
+from features.reference import get_reference_features
+from utils.enums import ToolEnum, AlignerEnum, _CONFUSION_ENUMS, PositionalEncodingEnum
+from features.multi import confusion_score
+from ensemblify.manager import infer_manager
+# BENCHMARKING = config["benchmarking"]
+
+
+DATA_DIR = pathlib.Path(config["general"]["input"])
+OUT_DIR  = pathlib.Path(config["general"]["output"])
+
+TOOLS = list(config["aligners"].keys())
+THREADS = [key:val["threads"] for key,val in config["aligners"].items()]
+
+datasets = os.listdir(DATA_DIR)
+rule all:
+    input:
+        OUT_DIR / "done"
+
+
+# # Remove gaps from already aligned data
+# rule prepare_sequences:
+#     input:
+#         msa = DATA_DIR / "{dataset}"
+#     output:
+#         sequences = OUT_DIR / "{dataset}" / "sequences.fasta"
+#     params:
+#         dataset = lambda wildcards: wildcards.dataset
+#     run:
+#         # Only process if dataset is included in sample
+#         if params.dataset in datasets:
+#             msa_obj = Alignment(input.msa).msa
+
+#             with open(output.sequences, "w") as outfile:
+#                 for sequence in msa_obj:
+#                     outfile.write(f">{sequence.id}\n")
+#                     outfile.write(str(sequence.seq).replace("-", ""))
+#                     outfile.write("\n")
+
+
+
+# # Generate and pickle ensemble models 
+rule generate_ensemble:
+    threads: lambda wildcards: config["aligners"][wildcards.tool]["threads"]
+    input:
+        in_file = OUT_DIR / "{dataset}" / "sequences.fasta"
+    output:
+        done = OUT_DIR / "{dataset}" / "{tool}" / "done",
+    log:
+        log = OUT_DIR / "{dataset}" / "{tool}"  / "ensemble.log"
+    params:
+        _tool = lambda wildcards: wildcards.tool,
+        _dataset = lambda wildcards: wildcards.dataset
+    run:
+        in_file = input.in_file
+        out_dir = OUT_DIR / params._dataset / params._tool
+        log_file = pathlib.Path(log.log)
+        manager_class = infer_manager(config["ensemble"][params._tool]["aligner"])
+        manager = manager_class(config, params._tool, in_file, out_dir, log_file, threads)
+
+        ensemble = manager.compute()
+        # Input sequences need to be shuffled 
+        dataset = Dataset(input.sequences)
+        aligner = Aligner(dataset, benchmarking=BENCHMARKING)
+        tool_enum = TOOLS[params.tool]
+        full_ensemble = aligner.compute(tool_enum, efa_file, log_file, threads)
+        
+            # if BENCHMARKING:
+            #     perf_dicts = [] 
+            #     for tool, times in aligner._perf_dict.items():
+            #         perf_dict = {"dataset":params.dataset_name, "tool":tool}
+            #         perf_dict.update({"mean":np.mean(times), "median":np.median(times), "std":np.std(times)})
+            #         perf_dicts.append(perf_dict)
+            #     perf_df = pd.DataFrame(perf_dicts)
+            #     perf_df.to_parquet(output.runtime)
+            # else:
+                # Touch file to prevent confusion
+        
+        # Set output flag
+        open(output.done, "a").close()
+
+
+
+rule collect_data:
+    input:
+        efa_files = expand(rules.generate_ensemble.output.efa, dataset=datasets, tool=TOOLS),
+    output:
+        check = OUT_DIR / "we.done",
+    run:
+        open(output.check, "a").close()

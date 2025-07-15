@@ -10,40 +10,26 @@ import numpy as np
 from Bio import AlignIO
 from ensemblify.manager import infer_manager
 
-DATA_DIR = pathlib.Path(config["general"]["input"])
+INPUT_DIR = pathlib.Path(config["general"]["input"])
 OUT_DIR  = pathlib.Path(config["general"]["output"])
 
 TOOLS = list(config["ensemble"].keys())
 THREADS = {key:val["threads"] for key,val in config["aligners"].items()}
 
-DATASETS = os.listdir(DATA_DIR)
+DATASETS = list(filter(lambda name: os.path.isdir(INPUT_DIR / name), os.listdir(INPUT_DIR)))
+
 rule all:
     input:
         done = expand(OUT_DIR / "{dataset}" / "{tool}" / "done", dataset=DATASETS, tool=TOOLS)
 
 
-# # Remove gaps from already aligned data
-# rule prepare_sequences:
-#     input:
-#         msa = DATA_DIR / "{dataset}"
-#     output:
-#         sequences = OUT_DIR / "{dataset}" / "sequences.fasta"
-#     params:
-#         dataset = lambda wildcards: wildcards.dataset
-#     run:
-#         # Only process if dataset is included in sample
-#         if params.dataset in datasets:
-#             msa_obj = Alignment(input.msa).msa
-
-#             with open(output.sequences, "w") as outfile:
-#                 for sequence in msa_obj:
-#                     outfile.write(f">{sequence.id}\n")
-#                     outfile.write(str(sequence.seq).replace("-", ""))
-#                     outfile.write("\n")
-
-
-
-# # Generate and pickle ensemble models 
+# Ensemble generation assumes the following file structure:
+#   input_dir/ 
+#       dataset_1/ 
+#           sequences.fasta
+#       dataset_2/
+#           sequences.fasta
+#       ...      
 rule generate_ensemble:
     threads: lambda wildcards: config["aligners"][config["ensemble"][wildcards.tool]["aligner"]]["threads"]
     input:

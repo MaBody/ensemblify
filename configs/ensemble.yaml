@@ -7,14 +7,14 @@ ensemble:
       "--max-guidetree-iterations": [1, 2, 3, 4]
       "--max-hmm-iterations": [1, 2]
 
-  MAFFT_FFT_NS_2:
+  MAFFT_FFT-NS-2:
     aligner: MAFFT
     type: "default"
     params:
       "--op": [1.1475, 1.4025, 1.6575, 1.9125]
       "--ep": [0.0922, 0.1538]
 
-  MAFFT_L_INS_I:
+  MAFFT_L-INS-i:
     aligner: MAFFT
     type: "default"
     params:
@@ -23,7 +23,7 @@ ensemble:
       "--op": [1.1475, 1.4025, 1.6575, 1.9125]
       "--ep": [0.0922, 0.1538]
 
-  MAFFT_G_INS_I:
+  MAFFT_G-INS-i:
     aligner: MAFFT
     type: "default"
     params:

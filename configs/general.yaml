@@ -1,3 +1,5 @@
 general:
-  input: /hits/fast/cme/bodynems/data/output/test
-  output: /hits/fast/cme/bodynems/data/output/test
+  input: /hits/fast/cme/bodynems/data/paper/treebase_v1
+  output: /hits/fast/cme/bodynems/data/paper/treebase_v1
+
+  raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"

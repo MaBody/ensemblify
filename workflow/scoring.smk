@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 from Bio import AlignIO
 from ensemblify.scoring import descriptive_stats
+from ensemblify.utils import infer_data_type
 
 from aldiscore.scoring import pairwise
 from aldiscore.scoring import set_based
@@ -68,6 +69,8 @@ rule compute_scores:
         
         stats_df = pd.DataFrame(stats.values(), index=stats.keys())
         stats_df.index.names = ["source", "dataset", "method"]
+        
+        stats_df["datatype"] = infer_data_type(ensemble.dataset.records)
         stats_df.to_parquet(output.stats)
 
 

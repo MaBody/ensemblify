@@ -68,7 +68,7 @@ class DefaultManager(Manager):
         return self.alignments
 
 class Muscle5Manager(Manager):
-    _REGEX = re.compile(r"\S*\.[a-z]{3,4}\.[0-9]+\.fasta$")
+    _REGEX = re.compile(r"^[a-z]{3,4}\.[0-9]+\.fasta$")
 
     def compute(self) -> dict[tuple, MultipleSeqAlignment]:
         self.alignments = {}

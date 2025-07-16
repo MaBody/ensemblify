@@ -1,12 +1,22 @@
 import itertools
 import tempfile
 import subprocess
+import numpy as np
+import pandas as pd
+from collections import defaultdict
 from typing import Literal
 from pathlib import Path
+from Bio.SeqRecord import SeqRecord
+from Bio.Align import MultipleSeqAlignment
+
 _SPACER = "§"
 
+GAP_CHAR = "-"
+DNA_CHARS = np.array(list("ACGT"))
+AA_CHARS = np.array(list("ACDEFGHIKLMNPQRSTVWY"))
 
-def equals_none(string:str):
+
+def equals_none(string: str):
     if string is None:
         return True
     string = string.strip().lower()
@@ -15,41 +25,41 @@ def equals_none(string:str):
     return False
 
 
-def get_option_variants(params:dict):
-        """Returns a list with the cartesian product of all combinations of options, formatted as strings."""
-        if params is None:
-            raise ValueError("Missing 'params' entry.")
-            # Return empty string to avoid cmd error (necessary ?)
-            # return [""]
-        
-        variants = []
-        base_options = []
-        product_options = {}
-        for key, val in params.items(): 
-            if equals_none(str(val)):
-                # If val is none: simple flag
-                base_options.append(key)
-            elif isinstance(val, list):
-                # If val is list: contains options
-                product_options[key] = val
-            else:
-                # val is assumed to be a single value
-                base_options.append(key)
-                base_options.append(str(val))
+def get_option_variants(params: dict):
+    """Returns a list with the cartesian product of all combinations of options, formatted as strings."""
+    if params is None:
+        raise ValueError("Missing 'params' entry.")
+        # Return empty string to avoid cmd error (necessary ?)
+        # return [""]
 
-        product_keys = list(product_options.keys())
-        for product_vals in itertools.product(*product_options.values()):
-            variant = base_options.copy()
-            for key, val in zip(product_keys, product_vals):
-                variant.extend([key, str(val)])
-            variants.append(variant)
-        variants = [_SPACER.join(variant) for variant in variants]
-        return variants
+    variants = []
+    base_options = []
+    product_options = {}
+    for key, val in params.items():
+        if equals_none(str(val)):
+            # If val is none: simple flag
+            base_options.append(key)
+        elif isinstance(val, list):
+            # If val is list: contains options
+            product_options[key] = val
+        else:
+            # val is assumed to be a single value
+            base_options.append(key)
+            base_options.append(str(val))
+
+    product_keys = list(product_options.keys())
+    for product_vals in itertools.product(*product_options.values()):
+        variant = base_options.copy()
+        for key, val in zip(product_keys, product_vals):
+            variant.extend([key, str(val)])
+        variants.append(variant)
+    variants = [_SPACER.join(variant) for variant in variants]
+    return variants
 
 
 def format_cmd(
     config: dict,
-    tool_name:str,
+    tool_name: str,
     options: str,
     threads: int,
     in_file: Path,
@@ -73,9 +83,6 @@ def format_cmd(
         if section:
             commands.append(section)
     return commands
-
-
-
 
 
 def run_cmd(
@@ -117,3 +124,53 @@ def run_cmd(
                 f"Check the logfile {logfile.absolute()} for details."
                 f"Logfile: {logfile.open().read()}"
             )
+
+
+def infer_data_type(records: list[SeqRecord] | MultipleSeqAlignment):
+    """
+    Infer the biological data type (DNA or protein) from a collection of sequence records.
+
+    Examines the first sufficiently long ungapped sequence and determines the type
+    based on character composition.
+
+    Parameters
+    ----------
+    records : list[SeqRecord] | MultipleSeqAlignment
+        Collection of sequence records.
+
+    Returns
+    -------
+    data_type : Literal['DNA', 'AA', 'n/a']
+        Inferred data type.
+
+    Raises TODO: Remove!
+    ------
+    AssertionError
+        If the alphabet cannot be determined.
+    """
+    ungapped = None
+    for seq in records:
+        ungapped = str(seq.seq).replace(GAP_CHAR, "")[:1000].upper()
+        if len(ungapped) >= 100:
+            break
+    char_counts = pd.Series(list(ungapped)).value_counts()
+    unique_chars = char_counts.index.to_series()
+
+    dna_included = np.isin(DNA_CHARS, unique_chars)
+    protein_included = np.isin(AA_CHARS, unique_chars)
+
+    protein_missing = AA_CHARS[~protein_included]
+    missing_counts = pd.Series(0, index=protein_missing)
+    char_counts = pd.concat((char_counts, missing_counts))
+
+    # If all DNA chars are included and their cumulative share is above 90%: DNA!
+    if dna_included.all() & (char_counts[DNA_CHARS].sum() / len(ungapped) >= 0.9):
+        return "DNA"
+    # If the cumulative share of protein chars is above 90%: Protein!
+    elif char_counts[AA_CHARS].sum() / len(ungapped) >= 0.9:
+        return "AA"
+    else:
+        return "n/a"
+        # raise AssertionError(
+        #     "Unknown alphabet detected for residues '{}'".format(ungapped)
+        # )

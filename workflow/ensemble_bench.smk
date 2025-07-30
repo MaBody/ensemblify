@@ -85,7 +85,7 @@ rule generate_ensemble:
         manager = manager_class(config, params._tool, in_file, out_dir, log_file, threads, shuffle=True)
 
         ensemble = manager.compute()
-        ensemble_dir = OUT_DIR / params._dataset / "ensemble"
+        ensemble_dir = out_dir.parent / "ensemble"
         os.makedirs(ensemble_dir, exist_ok=True)
         manager.save_ensemble(ensemble, ensemble_dir)
         # print("Manager type: ", manager_type, "Len ens: ", len(ensemble))

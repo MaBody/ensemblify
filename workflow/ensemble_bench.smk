@@ -16,7 +16,6 @@ OUT_DIR  = pathlib.Path(config["general"]["output"])
 TOOLS = list(config["ensemble"].keys())
 THREADS = {key:val["threads"] for key,val in config["aligners"].items()}
 
-# DATASETS = list(filter(lambda name: os.path.isdir(INPUT_DIR / name), os.listdir(INPUT_DIR)))
 # BENCHMARKS = ["b1", "b2"]
 BENCHMARKS = ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
 DATASET_MAP = {benchmark:os.listdir(INPUT_DIR / benchmark / "in") for benchmark in BENCHMARKS}

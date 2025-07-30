@@ -46,13 +46,19 @@ rule generate_ensemble:
         in_file = input.in_file
         out_dir = OUT_DIR / params._dataset / params._tool
         log_file = pathlib.Path(log.log_file)
-        manager_class = infer_manager(config["ensemble"][params._tool]["aligner"])
+        manager_type = config["ensemble"][params._tool]["type"]
+        manager_class = infer_manager(manager_type)
         manager = manager_class(config, params._tool, in_file, out_dir, log_file, threads, shuffle=True)
- 
+
         ensemble = manager.compute()
         ensemble_dir = OUT_DIR / params._dataset / "ensemble"
         os.makedirs(ensemble_dir, exist_ok=True)
         manager.save_ensemble(ensemble, ensemble_dir)
+        if manager_type == "Muscle5":
+            print("Muscle5!!!")
+            print(len(ensemble))
+        print("Manager type: ", manager_type)
+        
         
         # Set output flag
         open(output.done, "a").close()

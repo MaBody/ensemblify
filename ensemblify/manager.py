@@ -85,7 +85,7 @@ class DefaultManager(Manager):
 
 
 class Muscle5Manager(Manager):
-    _REGEX = re.compile(r"^[a-z]{3,4}\.[0-9]+\.fasta$")
+    _REGEX = re.compile(r"^msa.[a-z]{3,4}\.[0-9]+\.fasta$")
 
     def compute(self) -> dict[tuple, MultipleSeqAlignment]:
         self.alignments = {}
@@ -121,5 +121,5 @@ def infer_manager(aligner: str) -> Manager:
         case "default":
             return DefaultManager
         case _:
-            raise NotImplementedError()
+            raise NotImplementedError(f"Aligner type '{aligner}'")
         # TODO: Add more manager classes for other alignment programs

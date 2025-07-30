@@ -17,5 +17,5 @@ aligners:
     Muscle5:
         path: /hits/fast/cme/bodynems/tools/muscle5.1.linux_intel64
         cmd: "{aligner} -threads {threads} -stratified {options} -align {input} -output {output}"
-        threads: 8
+        threads: 4
     

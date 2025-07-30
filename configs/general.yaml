@@ -1,5 +1,17 @@
 general:
-  input: /hits/fast/cme/bodynems/data/paper/treebase_v1
-  output: /hits/fast/cme/bodynems/data/paper/treebase_v1
+  # # # Debugging
+  # input: /hits/fast/cme/bodynems/data/test_paper/test_benchin
+  # output: /hits/fast/cme/bodynems/data/test_paper/test_benchout
+
+  # # # Standard
+  # input: /hits/fast/cme/bodynems/data/paper/treebase_v1
+  # output: /hits/fast/cme/bodynems/data/paper/treebase_v1
+
+  # # # Benchmarks generation
+  # input: /hits/fast/cme/bodynems/data/paper/benchmarks_in
+  # output: /hits/fast/cme/bodynems/data/paper
+  
+  # # # Benchmarks scoring
+  output: /hits/fast/cme/bodynems/data/paper
 
   raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"

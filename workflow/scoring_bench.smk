@@ -49,7 +49,7 @@ rule compute_scores:
             alignments.append(alignment)
 
         ensemble = Ensemble(alignments)
-        ref_dir = OUT_DIR / wildcards.dataset / "reference.fasta"
+        ref_dir = ensemble_dir.parent / "reference.fasta"
         
         has_reference = os.path.exists(ref_dir)
         if has_reference:

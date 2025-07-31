@@ -47,22 +47,27 @@ rule compute_scores:
             alignments.append(alignment)
 
         ensemble = Ensemble(alignments)
-        ref_dir = OUT_DIR / params._dataset / "reference.fasta"
+        ref_dir = ensemble_dir.parent / "reference.fasta"
         
         has_reference = os.path.exists(ref_dir)
         if has_reference:
             reference = Alignment(AlignIO.read(ref_dir))
-        
+
+        source = wildcards.benchmark
+        dataset = wildcards.dataset
         stats = {}
         measure = pairwise.DPosDistance(format="flat")
         scores_dpos = measure.compute(ensemble)
-        scores_pythia = pythia.compute_pythia_difficulty(ensemble, RAXML_PATH)
-        
-        source = OUT_DIR.name
-        dataset = params._dataset
         stats[(source, dataset, "dpos")] = descriptive_stats(scores_dpos)
-        stats[(source, dataset, "pythia")] = descriptive_stats(scores_pythia)
-        
+
+        try: # Fewer than 4 sequences cause error in Raxml
+            scores_pythia = pythia.compute_pythia_difficulty(ensemble, RAXML_PATH)
+        except:
+            empty = {key:np.nan for key in stats[(source, dataset, "dpos")]}
+            stats[(source, dataset, "pythia")] = empty
+        else:
+            stats[(source, dataset, "pythia")] = descriptive_stats(scores_pythia)
+
         if has_reference:
             scores_dpos_ref = measure.compute(ensemble, reference)
             stats[(source, dataset, "dpos_ref")] = descriptive_stats(scores_dpos_ref)

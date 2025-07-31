@@ -16,16 +16,15 @@ OUT_DIR  = pathlib.Path(config["general"]["output"])
 TOOLS = list(config["ensemble"].keys())
 THREADS = {key:val["threads"] for key,val in config["aligners"].items()}
 
-# BENCHMARKS = ["b1", "b2"]
-BENCHMARKS = ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
-DATASET_MAP = {benchmark:os.listdir(INPUT_DIR / benchmark / "in") for benchmark in BENCHMARKS}
+SOURCES = config["general"]["sources"]
+DATASET_MAP = {source:os.listdir(INPUT_DIR / source) for source in SOURCES}
 
 
 rule all:
     input:
-        done = expand(OUT_DIR / "{benchmark}" / "{dataset}" / "{tool}" / "done", 
+        done = expand(OUT_DIR / "{source}" / "{dataset}" / "{tool}" / "done", 
                 zip,
-                benchmark=[
+                source=[
                     b for b in DATASET_MAP
                         for d in DATASET_MAP[b]
                         for t in TOOLS
@@ -42,18 +41,18 @@ rule all:
                 ]
             )
 
-# Convert to expected format
-rule prepare_sequences:
-    input:
-        msa = INPUT_DIR / "{benchmark}" / "in" / "{dataset}"
-    output:
-        sequences = OUT_DIR / "{benchmark}" / "{dataset}" / "sequences.fasta"
-    params:
-        benchmark = lambda wildcards: wildcards.benchmark,
-        dataset = lambda wildcards: wildcards.dataset
-    run:
-        seqs = list(SeqIO.parse(input.msa, "fasta"))
-        SeqIO.write(seqs, output.sequences, "fasta")
+# # Convert to expected format
+# rule prepare_sequences:
+#     input:
+#         msa = INPUT_DIR / "{source}" / "in" / "{dataset}"
+#     output:
+#         sequences = OUT_DIR / "{source}" / "{dataset}" / "sequences.fasta"
+#     params:
+#         source = lambda wildcards: wildcards.source,
+#         dataset = lambda wildcards: wildcards.dataset
+#     run:
+#         seqs = list(SeqIO.parse(input.msa, "fasta"))
+#         SeqIO.write(seqs, output.sequences, "fasta")
 
     
 
@@ -67,11 +66,12 @@ rule prepare_sequences:
 rule generate_ensemble:
     threads: lambda wildcards: config["aligners"][config["ensemble"][wildcards.tool]["aligner"]]["threads"]
     input:
-        in_file = rules.prepare_sequences.output.sequences
+        # in_file = rules.prepare_sequences.output.sequences
+        in_file = INPUT_DIR / "{source}" / "{dataset}" / "sequences.fasta"
     output:
-        done = OUT_DIR / "{benchmark}" / "{dataset}" / "{tool}" / "done"
+        done = OUT_DIR / "{source}" / "{dataset}" / "{tool}" / "done"
     log:
-        log_file = OUT_DIR / "{benchmark}" / "{dataset}" / "{tool}"  / "ensemble.log"
+        log_file = OUT_DIR / "{source}" / "{dataset}" / "{tool}"  / "ensemble.log"
     params:
         _tool = lambda wildcards: wildcards.tool,
         _dataset = lambda wildcards: wildcards.dataset
@@ -87,7 +87,6 @@ rule generate_ensemble:
         ensemble_dir = out_dir.parent / "ensemble"
         os.makedirs(ensemble_dir, exist_ok=True)
         manager.save_ensemble(ensemble, ensemble_dir)
-        # print("Manager type: ", manager_type, "Len ens: ", len(ensemble))
         
         # Set output flag
         open(output.done, "a").close()

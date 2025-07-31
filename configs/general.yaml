@@ -11,7 +11,12 @@ general:
   # input: /hits/fast/cme/bodynems/data/paper/benchmarks_in
   # output: /hits/fast/cme/bodynems/data/paper
   
-  # # # Benchmarks scoring
+  # # # Multi-source: Top Folder!
+  input: /hits/fast/cme/bodynems/data/paper
   output: /hits/fast/cme/bodynems/data/paper
+
+  # sources: ["b1", "b2"]
+  sources: ["arthropod"]
+  # sources: ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
 
   raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"

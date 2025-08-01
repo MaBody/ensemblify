@@ -21,26 +21,25 @@ from aldiscore.datastructures.ensemble import Ensemble
 OUT_DIR  = pathlib.Path(config["general"]["output"])
 RAXML_PATH  = pathlib.Path(config["general"]["raxml"])
 
-# BENCHMARKS = ["b1", "b2"]
-BENCHMARKS = ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
-DATASET_MAP = {benchmark:os.listdir(OUT_DIR / benchmark) for benchmark in BENCHMARKS}
+SOURCES = config["general"]["sources"]
+DATASET_MAP = {source:os.listdir(OUT_DIR / source) for source in SOURCES}
 
 
 wildcard_constraints:
-    benchmark="|".join(BENCHMARKS),
+    source="|".join(SOURCES),
     dataset="|".join([dataset for datasets in DATASET_MAP.values() for dataset in datasets])
 
 
 rule all:
     input:
-        done = expand(OUT_DIR / "{benchmark}" / "stats.parquet", benchmark=BENCHMARKS)
+        done = expand(OUT_DIR / "{source}" / "stats.parquet", source=SOURCES)
 
 
 rule compute_scores:
     input:
-        ensemble_dir = OUT_DIR / "{benchmark}" / "{dataset}" / "ensemble"
+        ensemble_dir = OUT_DIR / "{source}" / "{dataset}" / "ensemble"
     output:
-        stats = OUT_DIR / "{benchmark}" / "{dataset}" / "stats.parquet"
+        stats = OUT_DIR / "{source}" / "{dataset}" / "stats.parquet"
     run:
         ensemble_dir = Path(input.ensemble_dir)
         alignments = []
@@ -55,7 +54,7 @@ rule compute_scores:
         if has_reference:
             reference = Alignment(AlignIO.read(ref_dir))
         
-        source = wildcards.benchmark
+        source = wildcards.source
         dataset = wildcards.dataset
         stats = {}
         measure = pairwise.DPosDistance(format="flat")
@@ -85,12 +84,12 @@ rule compute_scores:
 rule collect:
     input:
         stats = lambda wildcards: expand(
-            OUT_DIR / "{benchmark}" / "{dataset}" / "stats.parquet",
-            benchmark=[wildcards.benchmark],
-            dataset=DATASET_MAP[wildcards.benchmark]
+            OUT_DIR / "{source}" / "{dataset}" / "stats.parquet",
+            source=[wildcards.source],
+            dataset=DATASET_MAP[wildcards.source]
         )
     output:
-        stats_global = OUT_DIR / "{benchmark}" / "stats.parquet"
+        stats_global = OUT_DIR / "{source}" / "stats.parquet"
     run:
         stats_dfs = []
         for stats_file in input.stats:

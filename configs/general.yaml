@@ -16,7 +16,8 @@ general:
   output: /hits/fast/cme/bodynems/data/paper
 
   # sources: ["b1", "b2"]
-  sources: ["arthropod"]
+  # sources: ["arthropod"]
   # sources: ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
+  sources: ["formatt_homstrad", "formatt_sabmark", "bralibase_k5", "bralibase_k7", "bralibase_k15"]
 
   raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"

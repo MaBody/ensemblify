@@ -22,8 +22,7 @@ OUT_DIR  = pathlib.Path(config["general"]["output"])
 RAXML_PATH  = pathlib.Path(config["general"]["raxml"])
 
 SOURCES = config["general"]["sources"]
-DATASET_MAP = {source:os.listdir(OUT_DIR / source) for source in SOURCES}
-
+DATASET_MAP = {source:list(filter(lambda name: os.path.isdir(OUT_DIR / source / name), os.listdir(OUT_DIR / source))) for source in SOURCES}
 
 wildcard_constraints:
     source="|".join(SOURCES),

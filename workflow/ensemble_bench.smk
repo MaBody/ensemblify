@@ -17,8 +17,9 @@ TOOLS = list(config["ensemble"].keys())
 THREADS = {key:val["threads"] for key,val in config["aligners"].items()}
 
 SOURCES = config["general"]["sources"]
-DATASET_MAP = {source:os.listdir(INPUT_DIR / source) for source in SOURCES}
-
+DATASET_MAP = {source:list(filter(lambda name: os.path.isdir(INPUT_DIR / source / name), os.listdir(INPUT_DIR / source))) for source in SOURCES}
+# print("sources:", SOURCES)
+# print("#datasets:", sum(len(names) for names in DATASET_MAP.values()))
 
 rule all:
     input:

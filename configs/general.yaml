@@ -18,6 +18,8 @@ general:
   # sources: ["b1", "b2"]
   # sources: ["arthropod"]
   # sources: ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
-  sources: ["formatt_homstrad", "formatt_sabmark", "bralibase_k5", "bralibase_k7", "bralibase_k15"]
+  # sources: ["formatt_homstrad", "formatt_sabmark", "bralibase_k5", "bralibase_k7", "bralibase_k15"]
+  sources: ["arthropod", "bralibase_k15", "bralibase_k7", "prefab4", "treebase_v1", "bali3", "bralibase_k5", "ox", "sabre"]
+  # sources: ["ox"]
 
   raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"

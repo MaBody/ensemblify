@@ -1,0 +1,2 @@
+WorkflowError in file "/hits/fast/cme/luciamf/msa_difficulty/alignment-project/ensemblify/workflow/snakefile", line 1:
+Workflow defines configfile configs/general_test.yaml but it is not present or accessible (full checked path: /hits/fast/cme/luciamf/msa_difficulty/alignment-project/ensemblify/workflow/configs/general_test.yaml).

@@ -1,4 +1,4 @@
-configfile: "configs/general.yaml"
+configfile: "configs/runtime.yaml"
 configfile: "configs/aligners.yaml"
 configfile: "configs/ensemble.yaml"
 
@@ -125,7 +125,7 @@ rule compute_scores_runtime:
             source = wildcards.source
             dataset = wildcards.dataset
             stats = {}
-            measure = pairwise.DPosDistance(format="flat")
+            measure = pairwise.DPosDistance(out_format="flat")
             scores_dpos = measure.compute(ensemble)
             stats[(source, dataset, "dpos")] = descriptive_stats(scores_dpos)
 

@@ -1,4 +1,4 @@
-"""Compile dataset-level scoring benchmark JSON files into a root-level Parquet file."""
+"""Compile per-tool ensemble benchmark JSON files into a root-level Parquet file."""
 
 from __future__ import annotations
 
@@ -13,8 +13,10 @@ import pandas as pd
 DEFAULT_COLUMNS = [
     "source",
     "dataset",
+    "tool",
     "benchmark_scope",
     "status",
+    "threads",
     "started_at",
     "ended_at",
     "wall_seconds",
@@ -51,7 +53,9 @@ def _load_data_root(config_path: Path) -> Path:
     raise ValueError(f"Could not find 'general.output' in {config_path}")
 
 
-def _flatten_record(path: Path, data_root: Path, record: dict[str, Any]) -> dict[str, Any]:
+def _flatten_record(
+    path: Path, data_root: Path, record: dict[str, Any]
+) -> dict[str, Any]:
     result = dict(record)
     cpu_seconds = result.pop("cpu_seconds", {}) or {}
     if isinstance(cpu_seconds, dict):
@@ -64,16 +68,17 @@ def _flatten_record(path: Path, data_root: Path, record: dict[str, Any]) -> dict
         result["cpu_total_seconds"] = cpu_seconds
 
     parts = path.relative_to(data_root).parts
-    if len(parts) >= 3:
+    if len(parts) >= 4:
         result.setdefault("source", parts[0])
         result.setdefault("dataset", parts[1])
+        result.setdefault("tool", parts[2])
     result["benchmark_path"] = str(path)
     return result
 
 
 def compile_benchmarks(data_root: Path, output_path: Path) -> pd.DataFrame:
     records = []
-    for benchmark_path in sorted(data_root.glob("*/*/scoring_benchmark.json")):
+    for benchmark_path in sorted(data_root.glob("*/*/*/benchmark.json")):
         with benchmark_path.open(encoding="utf-8") as handle:
             record = json.load(handle)
         records.append(_flatten_record(benchmark_path, data_root, record))
@@ -88,9 +93,9 @@ def compile_benchmarks(data_root: Path, output_path: Path) -> pd.DataFrame:
 
 
 def parse_args() -> argparse.Namespace:
-    default_config = _repo_root() / "configs" / "general.yaml"
+    default_config = _repo_root() / "configs" / "runtime.yaml"
     parser = argparse.ArgumentParser(
-        description="Compile OUT_DIR/source/dataset/scoring_benchmark.json files."
+        description="Compile OUT_DIR/source/dataset/tool/benchmark.json files."
     )
     parser.add_argument(
         "--config",
@@ -108,7 +113,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Output parquet path. Defaults to DATA_ROOT/scoring_benchmarks.parquet.",
+        help="Output parquet path. Defaults to DATA_ROOT/ensemble_benchmarks.parquet.",
     )
     return parser.parse_args()
 
@@ -116,9 +121,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     data_root = (args.data_root or _load_data_root(args.config)).expanduser()
-    output_path = args.output or data_root / "scoring_benchmarks.parquet"
+    output_path = args.output or data_root / "ensemble_benchmarks.parquet"
     df = compile_benchmarks(data_root, output_path)
-    print(f"Wrote {len(df)} scoring benchmark rows to {output_path}")
+    print(f"Wrote {len(df)} ensemble benchmark rows to {output_path}")
 
 
 if __name__ == "__main__":

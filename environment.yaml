@@ -12,3 +12,8 @@ dependencies:
 - pythiaphylopredictor
 - snakemake[version='>=8.9']
 - ipykernel
+- muscle==3.8.31
+- bioconda::mafft==7.525
+- bioconda::clustalo==1.2.4
+- parquet-tools
+- biopython

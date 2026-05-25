@@ -1,25 +1,47 @@
+
+# the set of sequences to be aligned needs to be stored in: 
+
+# work_dir/database/dataset/sequences.fasta
+
 general:
-  # # # Debugging
-  # input: /hits/fast/cme/bodynems/data/test_paper/test_benchin
-  # output: /hits/fast/cme/bodynems/data/test_paper/test_benchout
 
-  # # # Standard
-  # input: /hits/fast/cme/bodynems/data/paper/treebase_v1
-  # output: /hits/fast/cme/bodynems/data/paper/treebase_v1
+  # Standard
+  input: /path/to/work_dir
+  output: /path/to/work_dr/
+  sources: ["database"]
 
-  # # # Benchmarks generation
-  # input: /hits/fast/cme/bodynems/data/paper/benchmarks_in
-  # output: /hits/fast/cme/bodynems/data/paper
-  
-  # # # Multi-source: Top Folder!
-  input: /hits/fast/cme/bodynems/data/paper
-  output: /hits/fast/cme/bodynems/data/paper
+  raxml: "/path/to/raxml-ng"
 
-  # sources: ["b1", "b2"]
-  # sources: ["arthropod"]
-  # sources: ["bali2dna",  "bali2dnaf",  "bali3",  "ox",  "prefab4",  "sabre"]
-  # sources: ["formatt_homstrad", "formatt_sabmark", "bralibase_k5", "bralibase_k7", "bralibase_k15"]
-  sources: ["arthropod", "bralibase_k15", "bralibase_k7", "prefab4", "treebase_v1", "bali3", "bralibase_k5", "ox", "sabre"]
-  # sources: ["ox"]
 
-  raxml: "/hits/fast/cme/bodynems/tools/raxml-ng/bin/raxml-ng"
+# at the end, the result will be something like 
+
+# data_dir/source/dataset/
+# ├── ClustalO/
+# │   ├── done
+# │   ├── ensemble.log
+# │   └── msa.[0–7].fasta
+# │
+# ├── MAFFT_FFT-NS-2/
+# │   └── ...
+# │
+# ├── MAFFT_G-INS-i/
+# │   └── ...
+# │
+# ├── MAFFT_L-INS-i/
+# │   └── ...
+# │
+# ├── Muscle3/
+# │   └── ...
+# │
+# ├── Muscle5/
+# │   └── ...
+# │
+# ├── ensemble/
+# │   ├── ClustalO.[0–7].fasta
+# │   ├── MAFFT_FFT-NS-2.[0–7].fasta
+# │   ├── MAFFT_G-INS-i.[0–7].fasta
+# │   ├── MAFFT_L-INS-i.[0–7].fasta
+# │   ├── Muscle3.[0–7].fasta
+# │   └── Muscle5.[0–7].fasta
+# │
+# └── sequences.fasta

@@ -1,4 +1,4 @@
-configfile: "configs/general.yaml"
+configfile: "configs/runtime.yaml"
 configfile: "configs/aligners.yaml"
 configfile: "configs/ensemble.yaml"
 
@@ -96,7 +96,7 @@ rule all:
 
 
 rule generate_ensemble_benchmark:
-    threads: lambda wildcards: config["aligners"][config["ensemble"][wildcards.tool]["aligner"]]["threads"]
+    threads: 1
     input:
         in_file = INPUT_DIR / "{source}" / "{dataset}" / "sequences.fasta"
     output:

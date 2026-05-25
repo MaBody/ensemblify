@@ -39,6 +39,7 @@ rule compute_scores:
         ensemble_dir = OUT_DIR / "{source}" / "{dataset}" / "ensemble"
     output:
         stats = OUT_DIR / "{source}" / "{dataset}" / "stats.parquet"
+    threads: 4
     run:
         ensemble_dir = Path(input.ensemble_dir)
         alignments = []
@@ -56,12 +57,12 @@ rule compute_scores:
         source = wildcards.source
         dataset = wildcards.dataset
         stats = {}
-        measure = pairwise.DPosDistance(format="flat")
+        measure = pairwise.DPosDistance(out_format="flat")
         scores_dpos = measure.compute(ensemble)
         stats[(source, dataset, "dpos")] = descriptive_stats(scores_dpos)
 
         try: # Fewer than 4 sequences cause error in Raxml
-            scores_pythia = pythia.compute_pythia_difficulty(ensemble, RAXML_PATH)
+            scores_pythia = pythia.compute_pythia_difficulty(ensemble, RAXML_PATH, threads=4)
         except:
             empty = {key:np.nan for key in stats[(source, dataset, "dpos")]}
             stats[(source, dataset, "pythia")] = empty

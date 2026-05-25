@@ -94,7 +94,7 @@ data/
 
 ---
 
-## `aligners.yaml`
+#### `aligners.yaml`
 
 Provide the paths to installed alignment software.
 
@@ -221,26 +221,6 @@ parquet-tools csv work_dir/database/dataset/stats.parquet > work_dir/database/da
 
 
 ---
-
-### Description
-
-- `ClustalO/`, `MAFFT_*`, `Muscle*`
-  - Individual aligner outputs and replicates.
-
-- `ensemble/`
-  - Aggregated alignments from all methods.
-
-- `sequences.fasta`
-  - Original input sequences.
-
-- `stats.parquet`
-  - Computed statistics and difficulty metrics.
-
----
-
-
-## Requirements
-
 
 ### Notes
 

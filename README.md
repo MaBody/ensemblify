@@ -63,15 +63,6 @@ Then install the package itself:
 pip install .
 ```
 
----
-
-### c) Optional dependencies
-
-Some utilities (e.g., improved CLI output) may require additional packages:
-
-```bash
-pip install rich_argparse
-```
 
 ---
 

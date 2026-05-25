@@ -71,7 +71,6 @@ pip install .
 - Make sure all external alignment tools are installed separately and configured in `aligners.yaml`
 - Snakemake is required to run workflows
 - Python ≥ 3.9 recommended
-```
 
 ---
 

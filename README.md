@@ -92,20 +92,30 @@ data/
         └── sequences.fasta
 ```
 
+so the `general.yaml` file would look like: 
+```yaml
+general:
+
+  input: [...]/data/
+  output: [...]/data/
+  sources: ["ox"]
+
+  raxml: "/path/to/raxml-ng"
+```
 ---
 
 #### `aligners.yaml`
 
 Provide the paths to installed alignment software.
 
-Example:
+Example `aligners.yaml` for `ClustalO`:
 
 ```yaml
-aligners: 
-    MAFFT:
-        path: /path/to/miniconda3/envs/ensemblify/bin/mafft
-        cmd: "{aligner} {options} --thread {threads} {input}"
-        threads: 8
+aligners:
+    ClustalO:
+        path: /path/to/miniconda3/envs/ensemblify/bin/clustalo
+        cmd: "{aligner} -i {input} -o {output} -v --force {options} --threads={threads}"
+        threads: 8 
 ```
 ---
 
@@ -117,7 +127,7 @@ You can modify the current settings:
 - Number of threads per aligner
 - Parameters for each aligner
 
-Example:
+Example of `ClustalO` parameters in `ensemble.yaml`: 
 
 ```yaml
 ensemble:

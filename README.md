@@ -96,8 +96,8 @@ so the `general.yaml` file would look like:
 ```yaml
 general:
 
-  input: [...]/data/
-  output: [...]/data/
+  input: path/to/data/
+  output: path/to/data/
   sources: ["ox"]
 
   raxml: "/path/to/raxml-ng"

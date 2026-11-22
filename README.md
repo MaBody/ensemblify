@@ -104,10 +104,10 @@ general:
   output: path/to/results  # may be the same as `input`
   sources: ["ox"]
   raxml: raxml-ng          # or an explicit path
-  seed: 0                  # reproducible input shuffling; null = random
+  seed: 0                  # fixed input shuffle order; null = random
 ```
 
-Before each aligner run, the input sequences are shuffled so that the ensemble does not inherit a bias from the order in `sequences.fasta`. With a `seed`, the same input and configuration give the same ensemble on every run and machine. This relies on the aligners being deterministic for a fixed input order and thread count, which holds for all bundled aligners with one exception. MAFFT's multithreaded iterative refinement (L-INS-i, G-INS-i) returns a different alignment on every run, so the default MAFFT command sets `--threadit 0`, which runs only that phase single-threaded. Different `threads` settings can still give different alignments, so runtime mode (single-threaded) does not reproduce a normal run for MAFFT.
+Before each aligner run, the input sequences are shuffled so that the ensemble does not inherit a bias from the order in `sequences.fasta`. The `seed` fixes this shuffle order. It does not make the ensemble reproducible: multithreaded aligners can return different alignments for the same input, e.g. MAFFT's iterative refinement (L-INS-i, G-INS-i).
 
 ### `aligners.yaml`
 

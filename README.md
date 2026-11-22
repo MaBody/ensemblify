@@ -160,7 +160,19 @@ results/
             └── ...
 ```
 
-Step 2 writes per-dataset scores to `results/{source}/{dataset}/stats.parquet` and the combined scores to `results/{source}/stats.parquet`. Each row holds descriptive statistics (mean, std, min, quartiles, max) for one method (`dpos`, `pythia`, and `dpos_ref` if a `reference.fasta` exists next to `sequences.fasta`).
+Step 2 writes per-dataset scores to `results/{source}/{dataset}/stats.parquet` and the combined scores to `results/{source}/stats.parquet`. Each row holds descriptive statistics for one method:
+
+| Method     | Scores summarized                                                    |
+| ---------- | -------------------------------------------------------------------- |
+| `dpos`     | `d_pos` distance of every pair of alignments in the ensemble         |
+| `pythia`   | Pythia difficulty of every alignment (NaN for fewer than 4 sequences) |
+| `dpos_ref` | `d_pos` distance of every alignment to `reference.fasta`, if present |
+
+Columns: `mean`, `std`, `min`, `p25`, `p50`, `p75`, `max`, the number of valid scores `n` (failed Pythia runs are excluded), and `datatype` (`DNA`, `AA` or `n/a`).
+
+A `reference.fasta` (an alignment of the same sequences) is looked up next to `sequences.fasta` in the input directory first, then in the output dataset directory. The protein demo dataset ships one.
+
+Only datasets whose ensemble is complete (every tool in `ensemble.yaml` has a `done` flag) are scored. Incomplete ones are skipped with a warning.
 
 To convert a Parquet file to CSV:
 

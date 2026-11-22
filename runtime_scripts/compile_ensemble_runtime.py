@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 
 DEFAULT_COLUMNS = [
@@ -33,24 +34,15 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def _strip_comment(line: str) -> str:
-    return line.split("#", 1)[0].rstrip()
-
-
 def _load_data_root(config_path: Path) -> Path:
-    """Read general.output from the small project YAML config without extra deps."""
-    in_general = False
-    for raw_line in config_path.read_text(encoding="utf-8").splitlines():
-        line = _strip_comment(raw_line)
-        if not line.strip():
-            continue
-        if not line.startswith((" ", "\t")):
-            in_general = line.strip() == "general:"
-            continue
-        if in_general and line.strip().startswith("output:"):
-            value = line.split(":", 1)[1].strip().strip("\"'")
-            return Path(value).expanduser()
-    raise ValueError(f"Could not find 'general.output' in {config_path}")
+    """Read general.output from the config. Relative paths resolve against the
+    repository root, matching how the workflows run (`pixi run` from the root)."""
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    output = (config.get("general") or {}).get("output")
+    if not output:
+        raise ValueError(f"Could not find 'general.output' in {config_path}")
+    path = Path(output).expanduser()
+    return path if path.is_absolute() else _repo_root() / path
 
 
 def _flatten_record(

@@ -98,3 +98,10 @@ def test_scoring_workflow(workdir):
     assert stats.xs("pythia", level="method")["mean"].notna().all()
     datatypes = stats.xs("dpos", level="method")["datatype"].droplevel("source")
     assert datatypes.to_dict() == {"protein": "AA", "dna": "DNA"}
+    # demo/data/demo/protein ships a reference.fasta next to sequences.fasta, dna does not.
+    ref = stats.xs("dpos_ref", level="method").droplevel("source")
+    assert list(ref.index) == ["protein"]
+    n_alignments = len(list((workdir / "results" / "demo" / "protein" / "ensemble").glob("*.fasta")))
+    assert ref.loc["protein", "n"] == n_alignments  # one distance per alignment
+    assert dpos.loc[("demo", "protein"), "n"] == n_alignments * (n_alignments - 1) // 2  # all pairs
+

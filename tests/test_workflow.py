@@ -35,18 +35,18 @@ ENSEMBLE = {
 }
 
 
-@pytest.fixture(scope="module")
-def workdir(tmp_path_factory, demo_input) -> Path:
+def _make_workdir(tmp_path_factory, demo_input) -> Path:
     """A Snakemake working directory with its own configs/ pointing at the demo data."""
     wd = tmp_path_factory.mktemp("workflow")
     configs = wd / "configs"
     configs.mkdir()
 
     aligners = yaml.safe_load((REPO_ROOT / "configs" / "aligners.yaml").read_text())
+    # Single-threaded throughout: aligner output may depend on the thread count, and
+    # the runtime-mode run below (always 1 thread) must reproduce this ensemble. It also
+    # avoids the missing OpenMP support of Clustal Omega on osx-arm64.
     for aligner in aligners["aligners"].values():
-        aligner["threads"] = 2
-    # The bioconda osx-arm64 build of Clustal Omega lacks OpenMP and rejects --threads > 1.
-    aligners["aligners"]["ClustalO"]["threads"] = 1
+        aligner["threads"] = 1
 
     (configs / "aligners.yaml").write_text(yaml.safe_dump(aligners))
     (configs / "ensemble.yaml").write_text(yaml.safe_dump({"ensemble": ENSEMBLE}))
@@ -58,6 +58,7 @@ def workdir(tmp_path_factory, demo_input) -> Path:
                     "output": str(wd / "results"),
                     "sources": ["demo"],
                     "raxml": "raxml-ng",
+                    "seed": 13,
                 }
             }
         )
@@ -65,19 +66,34 @@ def workdir(tmp_path_factory, demo_input) -> Path:
     return wd
 
 
-def _snakemake(workflow: str, workdir: Path) -> None:
+@pytest.fixture(scope="module")
+def workdir(tmp_path_factory, demo_input) -> Path:
+    return _make_workdir(tmp_path_factory, demo_input)
+
+
+@pytest.fixture(scope="module")
+def runtime_workdir(tmp_path_factory, demo_input) -> Path:
+    return _make_workdir(tmp_path_factory, demo_input)
+
+
+def _snakemake(workflow: str, workdir: Path, *extra: str) -> None:
     snakemake = shutil.which("snakemake")
     assert snakemake is not None
     proc = subprocess.run(
-        [snakemake, "-s", str(REPO_ROOT / "workflow" / workflow), "-d", str(workdir), "-c", "2"],
+        [snakemake, "-s", str(REPO_ROOT / "workflow" / workflow), "-d", str(workdir), "-c", "2", *extra],
         capture_output=True,
         text=True,
     )
     assert proc.returncode == 0, proc.stdout[-3000:] + proc.stderr[-3000:]
 
 
+def _ensemble_contents(workdir: Path) -> dict[str, str]:
+    root = workdir / "results"
+    return {str(p.relative_to(root)): p.read_text() for p in sorted(root.glob("*/*/ensemble/*.fasta"))}
+
+
 def test_ensemble_workflow(workdir):
-    _snakemake("ensemble_bench.smk", workdir)
+    _snakemake("ensemble.smk", workdir)
     for dataset in ["protein", "dna"]:
         ensemble_dir = workdir / "results" / "demo" / dataset / "ensemble"
         files = sorted(p.name for p in ensemble_dir.iterdir())
@@ -87,7 +103,7 @@ def test_ensemble_workflow(workdir):
 
 
 def test_scoring_workflow(workdir):
-    _snakemake("scoring_bench.smk", workdir)
+    _snakemake("scoring.smk", workdir)
     stats = pd.read_parquet(workdir / "results" / "demo" / "stats.parquet")
     datasets = set(stats.index.get_level_values("dataset"))
     methods = set(stats.index.get_level_values("method"))
@@ -105,3 +121,25 @@ def test_scoring_workflow(workdir):
     assert ref.loc["protein", "n"] == n_alignments  # one distance per alignment
     assert dpos.loc[("demo", "protein"), "n"] == n_alignments * (n_alignments - 1) // 2  # all pairs
 
+
+
+def test_runtime_mode_reproduces_ensemble_and_writes_benchmarks(workdir, runtime_workdir):
+    # Second, independent run in runtime mode (single-threaded jobs) with the same seed.
+    _snakemake("ensemble.smk", runtime_workdir, "--config", "runtime=True")
+    _snakemake("scoring.smk", runtime_workdir, "--config", "runtime=True")
+
+    # Same seed and config in a separate run and directory -> identical ensembles.
+    assert _ensemble_contents(runtime_workdir) == _ensemble_contents(workdir)
+
+    results = runtime_workdir / "results"
+    tool_benchmarks = sorted(results.glob("demo/*/*/benchmark.json"))
+    assert len(tool_benchmarks) == 2 * len(ENSEMBLE)
+    assert len(list(results.glob("demo/*/scoring_benchmark.json"))) == 2
+    # Normal mode writes no benchmark files.
+    assert not list((workdir / "results").glob("demo/*/*/benchmark.json"))
+
+    from ensemblify import benchmark
+
+    benchmark.main(["--data-root", str(results)])
+    df = pd.read_parquet(results / "ensemble_benchmarks.parquet")
+    assert (df["status"] == "success").all() and (df["threads"] == 1).all()

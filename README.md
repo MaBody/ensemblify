@@ -104,7 +104,10 @@ general:
   output: path/to/results  # may be the same as `input`
   sources: ["ox"]
   raxml: raxml-ng          # or an explicit path
+  seed: 0                  # reproducible input shuffling; null = random
 ```
+
+Before each aligner run, the input sequences are shuffled so that the ensemble does not inherit a bias from the order in `sequences.fasta`. With a `seed`, the same input and configuration give the same ensemble on every run and machine. This relies on the aligners being deterministic for a fixed input order and thread count, which holds for all bundled aligners with one exception. MAFFT's multithreaded iterative refinement (L-INS-i, G-INS-i) returns a different alignment on every run, so the default MAFFT command sets `--threadit 0`, which runs only that phase single-threaded. Different `threads` settings can still give different alignments, so runtime mode (single-threaded) does not reproduce a normal run for MAFFT.
 
 ### `aligners.yaml`
 
@@ -182,18 +185,18 @@ pixi run parquet-tools csv results/demo/stats.parquet > results/demo/stats.csv
 
 ## Runtime benchmarks
 
-The `*_runtime` workflows do the same work as the regular ones and record wall-clock and CPU time per job in `benchmark.json` and `scoring_benchmark.json` files:
+Runtime mode runs the same workflows with every job single-threaded, so CPU times are comparable across tools. Each job also writes its wall-clock and CPU time to a `benchmark.json` (one per tool and dataset) or a `scoring_benchmark.json` (one per dataset):
 
 ```shell
-pixi run ensemble-runtime -c 8
+pixi run ensemble-runtime -c 8     # = pixi run ensemble -c 8 --config runtime=True
 pixi run score-runtime -c 8
 ```
 
-To compile the JSON files into Parquet tables in the output directory:
+To compile the JSON files into `ensemble_benchmarks.parquet` and `scoring_benchmarks.parquet` in the output directory:
 
 ```shell
-pixi run python runtime_scripts/compile_ensemble_runtime.py
-pixi run python runtime_scripts/compile_scoring_runtime.py
+pixi run compile-benchmarks                    # both
+pixi run compile-benchmarks --kind scoring     # one, optionally with --output path.parquet
 ```
 
 ## License

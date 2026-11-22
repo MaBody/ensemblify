@@ -4,7 +4,6 @@ from Bio import SeqIO
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 import random
 import os
 import re
@@ -32,10 +31,20 @@ class Manager(ABC):
             self.config["ensemble"][tool_name]["params"]
         )
 
-    @classmethod
     def save_ensemble(
-        cls, ensemble_dict: dict[tuple, MultipleSeqAlignment], out_dir: Path
+        self, ensemble_dict: dict[tuple, MultipleSeqAlignment], out_dir: Path
     ):
+        """Write this tool's alignments to `out_dir` as `{tool}.{i}.fasta`.
+
+        Earlier members of the same tool are removed first. Otherwise a rerun with
+        fewer variants would leave stale alignments behind, and the scoring workflow
+        reads every file in the ensemble directory.
+        """
+        out_dir = Path(out_dir)
+        stale = re.compile(rf"^{re.escape(self.tool_name)}\.[0-9]+\.fasta$")
+        for name in os.listdir(out_dir):
+            if stale.match(name):
+                (out_dir / name).unlink()
         for keys, msa in ensemble_dict.items():
             AlignIO.write(msa, out_dir / (".".join(map(str, keys)) + ".fasta"), "fasta")
 
@@ -59,39 +68,48 @@ class DefaultManager(Manager):
                 # All other aligners have dedicated -output flags, using log file as stdout to avoid bugs
                 stdout = self.log_file
 
+            # The shuffled copy lives next to the outputs (not in /tmp, which can be
+            # small on cluster nodes) and is removed even if the aligner fails.
+            shuffled = None
             if self.shuffle:
                 seq_records = list(SeqIO.parse(self.in_file, "fasta"))
                 random.shuffle(seq_records)
-                temp_file = NamedTemporaryFile("w", delete=False)
-                in_file = Path(temp_file.name)
-                SeqIO.write(seq_records, in_file, format="fasta")
-            else:
-                in_file = self.in_file
+                shuffled = self.out_dir / f".input.{i}.fasta"
+                SeqIO.write(seq_records, shuffled, format="fasta")
+            in_file = shuffled or self.in_file
 
-            cmd = utils.format_cmd(
-                self.config, self.tool_name, options, self.threads, in_file, out_file
-            )
-            utils.run_cmd(
-                cmd, outfile=stdout, logfile=self.log_file, log_write_mode="a"
-            )
+            try:
+                cmd = utils.format_cmd(
+                    self.config, self.tool_name, options, self.threads, in_file, out_file
+                )
+                utils.run_cmd(
+                    cmd, outfile=stdout, logfile=self.log_file, log_write_mode="a"
+                )
+            finally:
+                if shuffled is not None:
+                    shuffled.unlink(missing_ok=True)
 
             msa = AlignIO.read(out_file, "fasta")
             self.alignments[(self.tool_name, i)] = msa
-
-            if self.shuffle:
-                temp_file.close()
 
         return self.alignments
 
 
 class Muscle5Manager(Manager):
-    _REGEX = re.compile(r"^msa.[a-z]{3,4}\.[0-9]+\.fasta$")
+    # Muscle5 replaces '@' in the output template with "<permutation>.<replicate>",
+    # e.g. msa.abc.3.fasta. Permutations: none, abc, acb, bca.
+    _REGEX = re.compile(r"^msa\.([a-z]{3,4})\.([0-9]+)\.fasta$")
 
     def compute(self) -> dict[tuple, MultipleSeqAlignment]:
         self.alignments = {}
 
         in_file = self.in_file
-        out_template = self.out_dir / f"msa.@.fasta"
+        out_template = self.out_dir / "msa.@.fasta"
+
+        # Remove outputs of earlier runs so they cannot leak into this ensemble.
+        for name in os.listdir(self.out_dir):
+            if self._REGEX.match(name):
+                (self.out_dir / name).unlink()
 
         assert (
             len(self.variants) == 1
@@ -105,10 +123,18 @@ class Muscle5Manager(Manager):
             cmd, outfile=self.log_file, logfile=self.log_file, log_write_mode="a"
         )
 
-        for i, file_name in enumerate(
-            filter(lambda name: re.match(self._REGEX, name), os.listdir(self.out_dir))
-        ):
-            msa = AlignIO.read(self.out_dir / file_name, "fasta")
+        # Sort by (permutation, replicate) so indices are stable across runs and machines.
+        matches = [self._REGEX.match(name) for name in os.listdir(self.out_dir)]
+        matches = sorted(
+            (m for m in matches if m), key=lambda m: (m.group(1), int(m.group(2)))
+        )
+        if not matches:
+            raise RuntimeError(
+                f"Muscle5 produced no alignments in {self.out_dir}. "
+                f"Check the log file {self.log_file}."
+            )
+        for i, match in enumerate(matches):
+            msa = AlignIO.read(self.out_dir / match.group(0), "fasta")
             self.alignments[(self.tool_name, i)] = msa
 
         return self.alignments

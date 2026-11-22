@@ -14,3 +14,9 @@ general:
 
   # Bare name -> looked up on PATH (installed by pixi). Or give an explicit path.
   raxml: raxml-ng
+
+  # Seed for shuffling the input order before each aligner run. Fixes only the
+  # input order, not the alignments: multithreaded aligners (e.g. MAFFT L-INS-i,
+  # G-INS-i) can still differ between runs. Set to null to shuffle differently
+  # each time.
+  seed: 0

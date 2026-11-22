@@ -4,6 +4,7 @@ from Bio import SeqIO
 from Bio import AlignIO
 from Bio.Align import MultipleSeqAlignment
 from pathlib import Path
+import hashlib
 import random
 import os
 import re
@@ -19,17 +20,41 @@ class Manager(ABC):
         log_file: Path,
         threads: int,
         shuffle: bool = False,
+        seed: int | None = None,
     ):
+        """
+        Parameters
+        ----------
+        shuffle : bool
+            Shuffle the input sequence order before each aligner run, so the
+            ensemble does not inherit a bias from the order in the input file.
+        seed : int, optional
+            Makes the shuffling reproducible. `None` shuffles differently on every run.
+        """
         self.config = config
         self.tool_name = tool_name
         self.in_file = in_file
-        self.out_dir = out_dir
+        self.out_dir = Path(out_dir)
         self.log_file = log_file
         self.threads = threads
         self.shuffle = shuffle
+        self.seed = seed
         self.variants = utils.get_option_variants(
             self.config["ensemble"][tool_name]["params"]
         )
+
+    def _rng(self, variant: int) -> random.Random:
+        """Random generator for one aligner run.
+
+        Derived from the seed, the input's content, the tool and the variant index:
+        reproducible across machines and input paths, and independent between the
+        parallel jobs of one workflow run. (`random.Random` hashes string seeds with
+        SHA-512, so this does not depend on PYTHONHASHSEED.)
+        """
+        if self.seed is None:
+            return random.Random()
+        digest = hashlib.sha256(Path(self.in_file).read_bytes()).hexdigest()
+        return random.Random(f"{self.seed}:{digest}:{self.tool_name}:{variant}")
 
     def save_ensemble(
         self, ensemble_dict: dict[tuple, MultipleSeqAlignment], out_dir: Path
@@ -73,7 +98,7 @@ class DefaultManager(Manager):
             shuffled = None
             if self.shuffle:
                 seq_records = list(SeqIO.parse(self.in_file, "fasta"))
-                random.shuffle(seq_records)
+                self._rng(i).shuffle(seq_records)
                 shuffled = self.out_dir / f".input.{i}.fasta"
                 SeqIO.write(seq_records, shuffled, format="fasta")
             in_file = shuffled or self.in_file

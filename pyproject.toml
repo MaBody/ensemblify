@@ -76,10 +76,12 @@ parquet-tools = "*"
 ensemblify = { path = ".", editable = true }
 
 [tool.pixi.tasks]
-ensemble = "snakemake -s workflow/ensemble_bench.smk --printshellcmds --keep-going --latency-wait 60"
-score = "snakemake -s workflow/scoring_bench.smk --printshellcmds --keep-going --latency-wait 60"
-ensemble-runtime = "snakemake -s workflow/ensemble_runtime.smk --printshellcmds --keep-going --latency-wait 60"
-score-runtime = "snakemake -s workflow/scoring_runtime.smk --printshellcmds --keep-going --latency-wait 60"
+ensemble = "snakemake -s workflow/ensemble.smk --printshellcmds --keep-going --latency-wait 60"
+score = "snakemake -s workflow/scoring.smk --printshellcmds --keep-going --latency-wait 60"
+# Runtime mode: single-threaded jobs plus a benchmark JSON per job.
+ensemble-runtime = "snakemake -s workflow/ensemble.smk --printshellcmds --keep-going --latency-wait 60 --config runtime=True"
+score-runtime = "snakemake -s workflow/scoring.smk --printshellcmds --keep-going --latency-wait 60 --config runtime=True"
+compile-benchmarks = "python -m ensemblify.benchmark"
 
 [tool.pixi.feature.test.dependencies]
 pytest = "*"

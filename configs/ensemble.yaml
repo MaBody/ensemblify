@@ -1,3 +1,13 @@
+# Ensemble members: one entry per aligner configuration.
+#
+#   aligner: key into configs/aligners.yaml
+#   type:    "default" (one run per parameter combination) or "Muscle5"
+#            (Muscle5 generates its own ensemble via -stratified/-replicates)
+#   params:  scalar -> passed to every run; list -> one run per value (cartesian
+#            product over all list-valued params); ~ -> plain flag without value
+#
+# Remove an entry to leave that aligner out of the ensemble.
+
 ensemble:
   ClustalO:
     aligner: ClustalO
@@ -45,4 +55,3 @@ ensemble:
     type: "Muscle5"
     params:
       "-replicates": 2
-

@@ -1,4 +1,4 @@
-configfile: "configs/runtime.yaml"
+configfile: "configs/general.yaml"
 configfile: "configs/aligners.yaml"
 configfile: "configs/ensemble.yaml"
 
@@ -11,12 +11,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ensemblify.manager import infer_manager
+from ensemblify.utils import check_aligners
 
 
 INPUT_DIR = pathlib.Path(config["general"]["input"])
 OUT_DIR = pathlib.Path(config["general"]["output"])
 
 TOOLS = list(config["ensemble"].keys())
+check_aligners(config)
 SOURCES = config["general"]["sources"]
 DATASET_MAP = {
     source: list(

@@ -1,4 +1,6 @@
 import itertools
+import os
+import shutil
 import tempfile
 import subprocess
 import numpy as np
@@ -57,6 +59,61 @@ def get_option_variants(params: dict):
     return variants
 
 
+def resolve_executable(path: str | Path) -> Path:
+    """
+    Resolve an executable given in a config file.
+
+    A bare name such as ``"mafft"`` is looked up on ``PATH`` (the pixi environment
+    puts the conda-installed tools there). Anything containing a path separator is
+    treated as an explicit location, so manually installed binaries keep working.
+    Relative locations are resolved against the current working directory, which is
+    the repository root when the workflows run through ``pixi run``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the executable cannot be found or is not executable.
+    """
+    if path is None or str(path).strip() == "":
+        raise FileNotFoundError("No executable path configured.")
+    path_str = os.path.expanduser(str(path).strip())
+
+    if os.sep not in path_str:
+        found = shutil.which(path_str)
+        if found is None:
+            raise FileNotFoundError(
+                f"Executable '{path_str}' not found on PATH. Run inside the pixi "
+                f"environment (`pixi run ...`) or set an explicit path in the config."
+            )
+        return Path(found)
+
+    resolved = Path(path_str).resolve()
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise FileNotFoundError(
+            f"Executable '{path_str}' (resolved to '{resolved}') does not exist or "
+            f"is not executable. Check the path in the config."
+        )
+    return resolved
+
+
+def check_aligners(config: dict) -> None:
+    """Fail early if any aligner referenced in the ensemble config cannot be resolved."""
+    errors = []
+    for tool_name, tool_cfg in config["ensemble"].items():
+        aligner = tool_cfg["aligner"]
+        if aligner not in config["aligners"]:
+            errors.append(f"{tool_name}: aligner '{aligner}' missing from aligners config")
+            continue
+        try:
+            resolve_executable(config["aligners"][aligner]["path"])
+        except FileNotFoundError as e:
+            errors.append(f"{tool_name} ({aligner}): {e}")
+    if errors:
+        raise FileNotFoundError(
+            "Aligner configuration problems:\n  " + "\n  ".join(errors)
+        )
+
+
 def format_cmd(
     config: dict,
     tool_name: str,
@@ -68,7 +125,7 @@ def format_cmd(
 
     aligner_name = config["ensemble"][tool_name]["aligner"]
     kwargs = dict(
-        aligner=str(config["aligners"][aligner_name]["path"]),
+        aligner=str(resolve_executable(config["aligners"][aligner_name]["path"])),
         input=str(in_file),
         output=str(out_file),
         options=options,

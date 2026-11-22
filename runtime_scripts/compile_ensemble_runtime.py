@@ -93,7 +93,7 @@ def compile_benchmarks(data_root: Path, output_path: Path) -> pd.DataFrame:
 
 
 def parse_args() -> argparse.Namespace:
-    default_config = _repo_root() / "configs" / "runtime.yaml"
+    default_config = _repo_root() / "configs" / "general.yaml"
     parser = argparse.ArgumentParser(
         description="Compile OUT_DIR/source/dataset/tool/benchmark.json files."
     )

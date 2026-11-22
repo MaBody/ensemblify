@@ -1,4 +1,4 @@
-configfile: "configs/runtime.yaml"
+configfile: "configs/general.yaml"
 configfile: "configs/aligners.yaml"
 configfile: "configs/ensemble.yaml"
 
@@ -18,11 +18,11 @@ from aldiscore.datastructures.ensemble import Ensemble
 from aldiscore.scoring import pairwise
 from aldiscore.scoring import pythia
 from ensemblify.scoring import descriptive_stats
-from ensemblify.utils import infer_data_type
+from ensemblify.utils import infer_data_type, resolve_executable
 
 
 OUT_DIR = pathlib.Path(config["general"]["output"])
-RAXML_PATH = pathlib.Path(config["general"]["raxml"])
+RAXML_PATH = resolve_executable(config["general"]["raxml"])
 
 SOURCES = config["general"]["sources"]
 DATASET_MAP = {

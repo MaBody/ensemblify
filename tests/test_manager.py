@@ -137,3 +137,43 @@ def test_muscle5_manager_fails_without_output(tmp_path, in_file):
     }
     with pytest.raises(RuntimeError, match="no alignments"):
         Muscle5Manager(config, "Muscle5", in_file, tmp_path, tmp_path / "log", 1).compute()
+
+
+def _shuffled_orders(tmp_path, in_file, seed, runs=2):
+    """Record the input order each aligner run sees, for `runs` separate managers."""
+    aligner = _script(tmp_path / "fake", 'cp "$1" "$2"; grep ">" "$1" | tr -d "\\n" >&2; echo >&2\n')
+    orders = []
+    for run in range(runs):
+        out_dir = tmp_path / f"run{run}"
+        out_dir.mkdir()
+        log = out_dir / "ensemble.log"
+        config = _default_config(aligner, {"--x": [1, 2, 3, 4]})
+        DefaultManager(config, "FakeTool", in_file, out_dir, log, 1, shuffle=True, seed=seed).compute()
+        orders.append(log.read_text().splitlines())
+    return orders
+
+
+@pytest.fixture
+def many_seqs(tmp_path) -> Path:
+    f = tmp_path / "many.fasta"
+    f.write_text("".join(f">s{i}\nACGT\n" for i in range(30)))
+    return f
+
+
+def test_seeded_shuffle_is_reproducible(tmp_path, many_seqs):
+    first, second = _shuffled_orders(tmp_path, many_seqs, seed=7)
+    assert first == second
+    assert len(set(first)) == 4  # variants get independent orders
+
+
+def test_seed_changes_order(tmp_path, many_seqs):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (a,) = _shuffled_orders(tmp_path / "a", many_seqs, seed=1, runs=1)
+    (b,) = _shuffled_orders(tmp_path / "b", many_seqs, seed=2, runs=1)
+    assert a != b
+
+
+def test_unseeded_shuffle_varies(tmp_path, many_seqs):
+    first, second = _shuffled_orders(tmp_path, many_seqs, seed=None)
+    assert first != second  # 30! orders: a collision is practically impossible

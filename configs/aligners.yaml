@@ -12,7 +12,11 @@
 aligners:
     MAFFT:
         path: mafft
-        cmd: "{aligner} {options} --thread {threads} {input}"
+        # --threadit 0: MAFFT's multithreaded iterative refinement (L-INS-i, G-INS-i)
+        # is non-deterministic and gives a different alignment on every run. With it,
+        # only the refinement phase runs single-threaded. Remove for speed if
+        # reproducibility does not matter.
+        cmd: "{aligner} {options} --thread {threads} --threadit 0 {input}"
         threads: 8
 
     ClustalO:

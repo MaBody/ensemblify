@@ -1,11 +1,11 @@
 import itertools
 import os
+import shlex
 import shutil
-import tempfile
 import subprocess
+from contextlib import ExitStack
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 from typing import Literal
 from pathlib import Path
 from Bio.SeqRecord import SeqRecord
@@ -150,84 +150,104 @@ def run_cmd(
     out_write_mode: Literal["a", "w"] = "w",
 ) -> None:
     """
-    Runs a given command using the subprocess Python module. The results of the run are stored in the given `outfile`
-    and all logging and errors are written to `logfile` using the given write mode.
+    Run a command, writing its stdout to `outfile` and its stderr to `logfile`.
 
     Parameters
     ----------
     cmd : list[str]
         Command to run as list of strings.
     outfile : pathlib.Path
-        File where to store the output of the given command execution in.
-    logfile : pathlib.Path
-        File where to store all logging/errors in.
-    log_write_mode : str
-        Write mode to open the logfile with.
-        Allowed options are `'a'` (append logs to existing logs) and `'w'` (overwrite all existing logs).
+        File that receives the command's stdout.
+    logfile : pathlib.Path, optional
+        File that receives the command's stderr. If it is the same file as `outfile`,
+        stdout and stderr share one handle opened with `log_write_mode`, so repeated
+        calls append to the log instead of truncating it.
+    log_write_mode, out_write_mode : {"a", "w"}
+        Append to or overwrite the log and output files.
 
+    Raises
+    ------
+    RuntimeError
+        If the command exits with a non-zero code. The message contains the command
+        and the last lines of its error output.
     """
-    if log_write_mode not in ["a", "w"]:
-        raise ValueError(
-            f"Invalid write mode for logfile given: {log_write_mode}. Allowed options are 'a' (append) and 'w' (write)."
+    for name, mode in [("log_write_mode", log_write_mode), ("out_write_mode", out_write_mode)]:
+        if mode not in ("a", "w"):
+            raise ValueError(f"Invalid {name} '{mode}'. Allowed: 'a' (append), 'w' (write).")
+
+    outfile = Path(outfile)
+    logfile = Path(logfile) if logfile else None
+    shared = logfile is not None and outfile.resolve() == logfile.resolve()
+
+    with ExitStack() as stack:
+        if shared:
+            out = stack.enter_context(outfile.open(log_write_mode))
+            err = subprocess.STDOUT
+        else:
+            out = stack.enter_context(outfile.open(out_write_mode))
+            err = stack.enter_context(logfile.open(log_write_mode)) if logfile else subprocess.PIPE
+        proc = subprocess.run(cmd, stdout=out, stderr=err, encoding="utf-8")
+
+    if proc.returncode != 0:
+        if logfile is None:
+            details = (proc.stderr or "").strip()
+        else:
+            details = f"Log file: {logfile.absolute()}\nLast lines:\n{_tail(logfile)}"
+        raise RuntimeError(
+            f"Command failed with exit code {proc.returncode}: {shlex.join(map(str, cmd))}\n{details}"
         )
-    if not logfile:
-        logfile = Path(tempfile.NamedTemporaryFile("w").name)
-    with logfile.open(log_write_mode) as log, outfile.open(out_write_mode) as out:
-        try:
-            subprocess.run(cmd, stdout=out, stderr=log, check=True, encoding="utf-8")
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(
-                f"Error running CMD: {' '.join(cmd)}"
-                f"Check the logfile {logfile.absolute()} for details."
-                f"Logfile: {logfile.open().read()}"
-            )
 
 
-def infer_data_type(records: list[SeqRecord] | MultipleSeqAlignment):
+def _tail(path: Path, n_lines: int = 20) -> str:
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError:
+        return "<log file not readable>"
+    return "\n".join(lines[-n_lines:])
+
+
+def infer_data_type(
+    records: list[SeqRecord] | MultipleSeqAlignment, max_residues: int = 10_000
+) -> Literal["DNA", "AA", "n/a"]:
     """
     Infer the biological data type (DNA or protein) from a collection of sequence records.
 
-    Examines the first sufficiently long ungapped sequence and determines the type
-    based on character composition.
+    Pools the ungapped residues of the records (up to `max_residues`) and decides by
+    character composition: DNA if all four bases occur and make up at least 90% of
+    the residues, protein if the 20 amino acids make up at least 90%, else "n/a".
 
     Parameters
     ----------
     records : list[SeqRecord] | MultipleSeqAlignment
         Collection of sequence records.
+    max_residues : int
+        Upper bound on the number of residues inspected.
 
     Returns
     -------
     data_type : Literal['DNA', 'AA', 'n/a']
-        Inferred data type.
-
-    Raises TODO: Remove!
-    ------
-    AssertionError
-        If the alphabet cannot be determined.
+        Inferred data type. "n/a" for empty input or an unknown alphabet.
     """
-    ungapped = None
-    for seq in records:
-        ungapped = str(seq.seq).replace(GAP_CHAR, "")[:1000].upper()
-        if len(ungapped) >= 100:
+    chunks = []
+    total = 0
+    for record in records:
+        residues = str(record.seq).upper().replace(GAP_CHAR, "").replace(".", "")
+        chunks.append(residues[: max_residues - total])
+        total += len(chunks[-1])
+        if total >= max_residues:
             break
-    char_counts = pd.Series(list(ungapped)).value_counts()
-    unique_chars = char_counts.index.to_series()
-
-    dna_included = np.isin(DNA_CHARS, unique_chars)
-    protein_included = np.isin(AA_CHARS, unique_chars)
-
-    protein_missing = AA_CHARS[~protein_included]
-    missing_counts = pd.Series(0, index=protein_missing)
-    char_counts = pd.concat((char_counts, missing_counts))
-
-    # If all DNA chars are included and their cumulative share is above 90%: DNA!
-    if dna_included.all() & (char_counts[DNA_CHARS].sum() / len(ungapped) >= 0.9):
-        return "DNA"
-    # If the cumulative share of protein chars is above 90%: Protein!
-    elif char_counts[AA_CHARS].sum() / len(ungapped) >= 0.9:
-        return "AA"
-    else:
+    residues = "".join(chunks)
+    if not residues:
         return "n/a"
-        # raise AssertionError(
-        #     "Unknown alphabet detected for residues '{}'".format(ungapped)
-        # )
+
+    counts = pd.Series(list(residues)).value_counts()
+
+    def share(chars: np.ndarray) -> float:
+        return counts.reindex(chars, fill_value=0).sum() / len(residues)
+
+    all_bases_present = all(counts.get(base, 0) > 0 for base in DNA_CHARS)
+    if all_bases_present and share(DNA_CHARS) >= 0.9:
+        return "DNA"
+    if share(AA_CHARS) >= 0.9:
+        return "AA"
+    return "n/a"

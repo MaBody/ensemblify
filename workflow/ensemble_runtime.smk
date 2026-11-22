@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ensemblify import discovery
 from ensemblify.manager import infer_manager
 from ensemblify.utils import check_aligners
 
@@ -20,21 +21,13 @@ OUT_DIR = pathlib.Path(config["general"]["output"])
 TOOLS = list(config["ensemble"].keys())
 check_aligners(config)
 SOURCES = config["general"]["sources"]
-DATASET_MAP = {
-    source: list(
-        filter(
-            lambda name: os.path.isdir(INPUT_DIR / source / name),
-            os.listdir(INPUT_DIR / source),
-        )
-    )
-    for source in SOURCES
-}
+DATASET_MAP = discovery.input_datasets(INPUT_DIR, SOURCES)
 
 
 wildcard_constraints:
-    source="|".join(SOURCES),
-    dataset="|".join([dataset for datasets in DATASET_MAP.values() for dataset in datasets]),
-    tool="|".join(TOOLS),
+    source=discovery.wildcard_regex(SOURCES),
+    dataset=discovery.wildcard_regex(d for datasets in DATASET_MAP.values() for d in datasets),
+    tool=discovery.wildcard_regex(TOOLS),
 
 
 def _expanded_dataset_tool_paths(file_name):

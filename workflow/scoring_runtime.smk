@@ -3,42 +3,31 @@ configfile: "configs/aligners.yaml"
 configfile: "configs/ensemble.yaml"
 
 import json
-import os
 import pathlib
 import resource
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from Bio import AlignIO
-from aldiscore.datastructures.alignment import Alignment
-from aldiscore.datastructures.ensemble import Ensemble
-from aldiscore.scoring import pairwise
-from aldiscore.scoring import pythia
-from ensemblify.scoring import descriptive_stats
-from ensemblify.utils import infer_data_type, resolve_executable
+
+from ensemblify import discovery, scoring
+from ensemblify.utils import resolve_executable
 
 
+INPUT_DIR = pathlib.Path(config["general"]["input"])
 OUT_DIR = pathlib.Path(config["general"]["output"])
 RAXML_PATH = resolve_executable(config["general"]["raxml"])
 
+TOOLS = list(config["ensemble"].keys())
 SOURCES = config["general"]["sources"]
-DATASET_MAP = {
-    source: list(
-        filter(
-            lambda name: os.path.isdir(OUT_DIR / source / name),
-            os.listdir(OUT_DIR / source),
-        )
-    )
-    for source in SOURCES
-}
+DATASET_MAP = discovery.scorable_datasets(OUT_DIR, SOURCES, TOOLS)
+ACTIVE_SOURCES = [source for source in SOURCES if DATASET_MAP[source]]
 
 
 wildcard_constraints:
-    source="|".join(SOURCES),
-    dataset="|".join([dataset for datasets in DATASET_MAP.values() for dataset in datasets])
+    source=discovery.wildcard_regex(SOURCES),
+    dataset=discovery.wildcard_regex(d for datasets in DATASET_MAP.values() for d in datasets)
 
 
 def _expanded_dataset_paths(file_name):
@@ -91,7 +80,7 @@ rule all:
     input:
         scoring_benchmark = _expanded_dataset_paths("scoring_benchmark.json"),
         scoring_stats = _expanded_dataset_paths("stats.parquet"),
-        source_stats = expand(OUT_DIR / "{source}" / "stats.parquet", source=SOURCES)
+        source_stats = expand(OUT_DIR / "{source}" / "stats.parquet", source=ACTIVE_SOURCES)
 
 
 rule compute_scores_runtime:
@@ -109,42 +98,13 @@ rule compute_scores_runtime:
         exception_message = None
 
         try:
-            ensemble_dir = Path(input.ensemble_dir)
-            alignments = []
-            for msa_file in os.listdir(ensemble_dir):
-                alignment = Alignment(AlignIO.read(ensemble_dir / msa_file, "fasta"))
-                alignments.append(alignment)
-
-            ensemble = Ensemble(alignments)
-            ref_dir = ensemble_dir.parent / "reference.fasta"
-
-            has_reference = os.path.exists(ref_dir)
-            if has_reference:
-                reference = Alignment(AlignIO.read(ref_dir, "fasta"))
-
-            source = wildcards.source
-            dataset = wildcards.dataset
-            stats = {}
-            measure = pairwise.DPosDistance(out_format="flat")
-            scores_dpos = measure.compute(ensemble)
-            stats[(source, dataset, "dpos")] = descriptive_stats(scores_dpos)
-
-            try:  # Fewer than 4 sequences cause error in RAxML.
-                scores_pythia = pythia.compute_pythia_difficulty(ensemble, RAXML_PATH)
-            except Exception:
-                empty = {key: np.nan for key in stats[(source, dataset, "dpos")]}
-                stats[(source, dataset, "pythia")] = empty
-            else:
-                stats[(source, dataset, "pythia")] = descriptive_stats(scores_pythia)
-
-            if has_reference:
-                scores_dpos_ref = measure.compute(ensemble, reference)
-                stats[(source, dataset, "dpos_ref")] = descriptive_stats(scores_dpos_ref)
-
-            stats_df = pd.DataFrame(stats.values(), index=stats.keys())
-            stats_df.index.names = ["source", "dataset", "method"]
-
-            stats_df["datatype"] = infer_data_type(ensemble.dataset.records)
+            ensemble = scoring.load_ensemble(input.ensemble_dir)
+            reference = scoring.find_reference(
+                INPUT_DIR / wildcards.source / wildcards.dataset,
+                OUT_DIR / wildcards.source / wildcards.dataset,
+            )
+            stats_df = scoring.score_ensemble(ensemble, reference, RAXML_PATH, threads=threads)
+            stats_df = pd.concat({(wildcards.source, wildcards.dataset): stats_df}, names=["source", "dataset"])
             stats_df.to_parquet(output.stats)
         except Exception as exc:
             status = "failed"
@@ -182,10 +142,5 @@ rule collect:
     output:
         stats_global = OUT_DIR / "{source}" / "stats.parquet"
     run:
-        stats_dfs = []
-        for stats_file in input.stats:
-            stats_df = pd.read_parquet(stats_file)
-            stats_dfs.append(stats_df)
-
-        stats_global_df = pd.concat(stats_dfs, axis=0)
+        stats_global_df = pd.concat([pd.read_parquet(f) for f in input.stats], axis=0)
         stats_global_df.to_parquet(output.stats_global)

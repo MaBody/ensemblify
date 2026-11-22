@@ -5,6 +5,7 @@ configfile: "configs/ensemble.yaml"
 import os
 import pathlib
 from pathlib import Path
+from ensemblify import discovery
 from ensemblify.manager import infer_manager
 from ensemblify.utils import check_aligners
 
@@ -15,7 +16,12 @@ TOOLS = list(config["ensemble"].keys())
 check_aligners(config)
 
 SOURCES = config["general"]["sources"]
-DATASET_MAP = {source:list(filter(lambda name: os.path.isdir(INPUT_DIR / source / name), os.listdir(INPUT_DIR / source))) for source in SOURCES}
+DATASET_MAP = discovery.input_datasets(INPUT_DIR, SOURCES)
+
+wildcard_constraints:
+    source=discovery.wildcard_regex(SOURCES),
+    dataset=discovery.wildcard_regex(d for datasets in DATASET_MAP.values() for d in datasets),
+    tool=discovery.wildcard_regex(TOOLS),
 
 rule all:
     input:

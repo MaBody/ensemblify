@@ -1,0 +1,25 @@
+# pixi / Python
+.pixi/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Snakemake
+.snakemake/
+stdout_*.log
+
+# Workflow outputs (default `output:` in configs/general.yaml)
+results/
+
+# Local config overrides
+configs/*_local.yaml
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

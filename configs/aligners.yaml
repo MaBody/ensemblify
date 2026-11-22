@@ -1,21 +1,35 @@
-aligners: 
+# Aligner executables and their command templates.
+#
+# `path` can be either
+#   - a bare executable name (e.g. `mafft`): looked up on PATH. `pixi install` puts
+#     MAFFT, Clustal Omega and Muscle5 there, so the defaults below work as-is, or
+#   - an explicit path (absolute, `~/...`, or relative to the repository root) for
+#     manually installed binaries, e.g. `/opt/tools/muscle5.1.linux_intel64`.
+#
+# `cmd` placeholders: {aligner} {input} {output} {options} {threads}.
+# Templates without {output} write the alignment to stdout (MAFFT).
+
+aligners:
     MAFFT:
-        path: /path/to/miniconda3/envs/ensemblify/bin/mafft
+        path: mafft
         cmd: "{aligner} {options} --thread {threads} {input}"
         threads: 8
 
     ClustalO:
-        path: /path/to/miniconda3/envs/ensemblify/bin/clustalo
+        path: clustalo
         cmd: "{aligner} -i {input} -o {output} -v --force {options} --threads={threads}"
+        # Use 1 on Apple Silicon: the bioconda osx-arm64 build has no OpenMP.
         threads: 8
 
     Muscle3:
-        path: /path/to/miniconda3/envs/ensemblify/bin/muscle
+        # Muscle 3.8.31 conflicts with Muscle5 in one conda env, so it has its own
+        # pixi environment: `pixi install -e muscle3` (on Apple Silicon this
+        # installs the osx-64 build, which runs under Rosetta).
+        path: .pixi/envs/muscle3/bin/muscle
         cmd: "{aligner} {options} -in {input} -out {output}"
-        threads: 1        
+        threads: 1
 
     Muscle5:
-        path: /path/to/miniconda3/envs/ensemblify/bin/muscle5.1.linux_intel64
+        path: muscle
         cmd: "{aligner} -threads {threads} -stratified {options} -align {input} -output {output}"
         threads: 20
-    

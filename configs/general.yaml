@@ -1,47 +1,16 @@
-
-# the set of sequences to be aligned needs to be stored in: 
-
-# work_dir/database/dataset/sequences.fasta
+# Input layout:   {input}/{source}/{dataset}/sequences.fasta
+# Output layout:  {output}/{source}/{dataset}/{tool}/msa.*.fasta,
+#                 {output}/{source}/{dataset}/ensemble/*.fasta,
+#                 {output}/{source}/{dataset}/stats.parquet, ...
+# `input` and `output` may point to the same directory.
+# Relative paths are resolved against the repository root.
+#
+# The defaults run the bundled demo data in demo/data/demo/.
 
 general:
+  input: demo/data
+  output: results
+  sources: ["demo"]
 
-  # Standard
-  input: /path/to/work_dir
-  output: /path/to/work_dr/
-  sources: ["database"]
-
-  raxml: "/path/to/raxml-ng"
-
-
-# at the end, the result will be something like 
-
-# data_dir/source/dataset/
-# ├── ClustalO/
-# │   ├── done
-# │   ├── ensemble.log
-# │   └── msa.[0–7].fasta
-# │
-# ├── MAFFT_FFT-NS-2/
-# │   └── ...
-# │
-# ├── MAFFT_G-INS-i/
-# │   └── ...
-# │
-# ├── MAFFT_L-INS-i/
-# │   └── ...
-# │
-# ├── Muscle3/
-# │   └── ...
-# │
-# ├── Muscle5/
-# │   └── ...
-# │
-# ├── ensemble/
-# │   ├── ClustalO.[0–7].fasta
-# │   ├── MAFFT_FFT-NS-2.[0–7].fasta
-# │   ├── MAFFT_G-INS-i.[0–7].fasta
-# │   ├── MAFFT_L-INS-i.[0–7].fasta
-# │   ├── Muscle3.[0–7].fasta
-# │   └── Muscle5.[0–7].fasta
-# │
-# └── sequences.fasta
+  # Bare name -> looked up on PATH (installed by pixi). Or give an explicit path.
+  raxml: raxml-ng

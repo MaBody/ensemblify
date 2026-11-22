@@ -4,22 +4,18 @@ configfile: "configs/ensemble.yaml"
 
 import os
 import pathlib
-import pickle
-import pandas as pd
-import numpy as np
-from Bio import SeqIO, AlignIO
+from pathlib import Path
 from ensemblify.manager import infer_manager
+from ensemblify.utils import check_aligners
 
 INPUT_DIR = pathlib.Path(config["general"]["input"])
-OUT_DIR  = pathlib.Path(config["general"]["output"])
+OUT_DIR = pathlib.Path(config["general"]["output"])
 
 TOOLS = list(config["ensemble"].keys())
-THREADS = {key:val["threads"] for key,val in config["aligners"].items()}
+check_aligners(config)
 
 SOURCES = config["general"]["sources"]
 DATASET_MAP = {source:list(filter(lambda name: os.path.isdir(INPUT_DIR / source / name), os.listdir(INPUT_DIR / source))) for source in SOURCES}
-# print("sources:", SOURCES)
-# print("#datasets:", sum(len(names) for names in DATASET_MAP.values()))
 
 rule all:
     input:
@@ -42,21 +38,6 @@ rule all:
                 ]
             )
 
-# # Convert to expected format
-# rule prepare_sequences:
-#     input:
-#         msa = INPUT_DIR / "{source}" / "in" / "{dataset}"
-#     output:
-#         sequences = OUT_DIR / "{source}" / "{dataset}" / "sequences.fasta"
-#     params:
-#         source = lambda wildcards: wildcards.source,
-#         dataset = lambda wildcards: wildcards.dataset
-#     run:
-#         seqs = list(SeqIO.parse(input.msa, "fasta"))
-#         SeqIO.write(seqs, output.sequences, "fasta")
-
-    
-
 # Ensemble generation assumes the following file structure:
 #   input_dir/ 
 #       dataset_1/ 
@@ -67,7 +48,6 @@ rule all:
 rule generate_ensemble:
     threads: lambda wildcards: config["aligners"][config["ensemble"][wildcards.tool]["aligner"]]["threads"]
     input:
-        # in_file = rules.prepare_sequences.output.sequences
         in_file = INPUT_DIR / "{source}" / "{dataset}" / "sequences.fasta"
     output:
         done = OUT_DIR / "{source}" / "{dataset}" / "{tool}" / "done"

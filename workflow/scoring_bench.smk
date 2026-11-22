@@ -4,22 +4,21 @@ configfile: "configs/ensemble.yaml"
 
 import os
 import pathlib
-import pickle
+from pathlib import Path
 import pandas as pd
 import numpy as np
 from Bio import AlignIO
 from ensemblify.scoring import descriptive_stats
-from ensemblify.utils import infer_data_type
+from ensemblify.utils import infer_data_type, resolve_executable
 
 from aldiscore.scoring import pairwise
-from aldiscore.scoring import set_based
 from aldiscore.scoring import pythia
 from aldiscore.datastructures.alignment import Alignment
 from aldiscore.datastructures.ensemble import Ensemble
 
 
-OUT_DIR  = pathlib.Path(config["general"]["output"])
-RAXML_PATH  = pathlib.Path(config["general"]["raxml"])
+OUT_DIR = pathlib.Path(config["general"]["output"])
+RAXML_PATH = resolve_executable(config["general"]["raxml"])
 
 SOURCES = config["general"]["sources"]
 DATASET_MAP = {source:list(filter(lambda name: os.path.isdir(OUT_DIR / source / name), os.listdir(OUT_DIR / source))) for source in SOURCES}

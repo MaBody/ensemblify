@@ -1,0 +1,102 @@
+[project]
+name = "ensemblify"
+description = "Generate ensembles of multiple sequence alignments and score their dispersion."
+readme = {file = "README.md", content-type = "text/markdown"}
+keywords = ["msa", "alignment", "ensemble", "uncertainty", "snakemake"]
+authors = [{name = "Mattis Bodynek", email = "mattisbodynek@gmail.com"}]
+version = "1.1.0"
+license = "GPL-3.0-or-later"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "biopython",
+    "pyyaml",
+    # aldiscore is not on PyPI; pin a release tag so results stay reproducible.
+    "aldiscore[pythia] @ git+https://github.com/MaBody/aldiscore.git@v2.0.0",
+]
+
+[project.optional-dependencies]
+# Snakemake drives the workflows. The pixi setup installs it from conda.
+workflow = ["snakemake>=8.9"]
+
+[project.urls]
+Repository = "https://github.com/MaBody/ensemblify.git"
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools >= 77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ensemblify*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["workflow: end-to-end Snakemake runs on the demo data (slower)"]
+
+# ---------------------------------------------------------------------------
+# pixi: primary setup. Ships the aligners, RAxML-NG and Snakemake as prebuilt
+# conda packages, so `pixi install` gives a ready-to-run toolchain.
+# ---------------------------------------------------------------------------
+
+[tool.pixi.workspace]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+[tool.pixi.dependencies]
+python = ">=3.10,<3.14"
+snakemake = ">=8.9"
+# Aligners and tree inference
+mafft = "*"
+clustalo = "*"
+muscle = ">=5"          # Muscle5. Muscle3 lives in its own environment, see below.
+raxml-ng = "*"
+# Compiled aldiscore dependencies: prebuilt from conda instead of PyPI source builds.
+parasail-python = "*"
+lightgbm = "*"
+# aldiscore[pythia] -> pythiaphylopredictor -> shap -> numba/llvmlite
+pythiaphylopredictor = "*"
+shap = "*"
+numba = "*"
+parquet-tools = "*"
+
+[tool.pixi.pypi-dependencies]
+ensemblify = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+ensemble = "snakemake -s workflow/ensemble_bench.smk --printshellcmds --keep-going --latency-wait 60"
+score = "snakemake -s workflow/scoring_bench.smk --printshellcmds --keep-going --latency-wait 60"
+ensemble-runtime = "snakemake -s workflow/ensemble_runtime.smk --printshellcmds --keep-going --latency-wait 60"
+score-runtime = "snakemake -s workflow/scoring_runtime.smk --printshellcmds --keep-going --latency-wait 60"
+
+[tool.pixi.feature.test.dependencies]
+pytest = "*"
+
+[tool.pixi.feature.test.tasks]
+test = "pytest"
+
+# Muscle 3.8.31 and Muscle 5 are the same conda package (`muscle`), so they
+# cannot share an environment. This standalone environment only holds the
+# Muscle3 binary; configs/aligners.yaml points at it. bioconda has no osx-arm64
+# build, so on Apple Silicon pixi installs the osx-64 one (runs under Rosetta).
+[tool.pixi.feature.muscle3]
+platforms = ["linux-64", "osx-64"]
+
+[tool.pixi.feature.muscle3.dependencies]
+muscle = "==3.8.31"
+
+[tool.pixi.environments]
+default = { features = ["test"], solve-group = "default" }
+muscle3 = { features = ["muscle3"], no-default-feature = true }

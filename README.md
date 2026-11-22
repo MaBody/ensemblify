@@ -1,133 +1,128 @@
 # ensemblify
 
-Generate Multiple Sequence Alignment (MSA) ensembles and compute alignment difficulty metrics.
+Generate ensembles of Multiple Sequence Alignments (MSAs) and compute dispersion-based alignment difficulty scores.
 
-## Overview
+`ensemblify` runs several aligners (MAFFT, Clustal Omega, Muscle3, Muscle5) under a range of parameter settings, collects the resulting alignments into an ensemble, and scores the ensemble's dispersion with [AlDiScore](https://github.com/MaBody/aldiscore) (`d_pos`) and [Pythia](https://github.com/tschuelia/PyPythia).
 
-`ensemblify` generates ensembles of MSAs using multiple alignment methods and computes dispersion-based scores to estimate alignment difficulty.
+The pipeline has two [Snakemake](https://snakemake.readthedocs.io) workflows:
 
-The workflow consists of two main steps:
-
-1. **Generate an MSA ensemble**
-2. **Compute pairwise positional dispersion (`d_pos`) across the ensemble**
-
----
+1. **Ensemble generation**: align every dataset with every configured aligner variant.
+2. **Scoring**: compute the pairwise positional dispersion (`d_pos`) and Pythia difficulty across each ensemble.
 
 ## Setup
 
-Clone this repository and navigate to the project root:
+Clone this repository and navigate to the top folder:
 
-```bash
+```shell
 git clone https://github.com/MaBody/ensemblify.git
 cd ensemblify
 ```
 
----
+Install with [pixi](https://pixi.sh):
 
-### a) Library + CLI (pip / setuptools build)
-
-You can install `ensemblify` as a Python package using a standard build:
-
-```bash
-python -m build
+```shell
+pixi install
 ```
 
-This will generate a `dist/` folder containing the wheel file.
+This creates a conda environment with Python, Snakemake, the `ensemblify` package (editable) and AlDiScore. It also installs these prebuilt tools from conda-forge and bioconda:
 
-Install it with:
+| Tool          | Package    | Binary     |
+| ------------- | ---------- | ---------- |
+| MAFFT         | `mafft`    | `mafft`    |
+| Clustal Omega | `clustalo` | `clustalo` |
+| Muscle5       | `muscle>=5`| `muscle`   |
+| RAxML-NG      | `raxml-ng` | `raxml-ng` |
 
-```bash
-pip install dist/ensemblify-<version>.whl
+### Muscle3
+
+Muscle 3.8.31 and Muscle5 are the same conda package, so they cannot share one environment. Muscle3 gets its own:
+
+```shell
+pixi install -e muscle3
 ```
 
-Alternatively, install directly in editable mode (recommended for development):
+`configs/aligners.yaml` already points at `.pixi/envs/muscle3/bin/muscle`.
 
-```bash
-pip install -e .
+> **Apple Silicon (osx-arm64):**
+> - bioconda has no native Muscle 3.8.31 build. pixi installs the osx-64 build instead, which runs under [Rosetta 2](https://support.apple.com/en-us/102527). Without Rosetta, remove the `Muscle3` entry from `configs/ensemble.yaml`.
+> - The bioconda build of Clustal Omega has no OpenMP support. Set `threads: 1` for `ClustalO` in `configs/aligners.yaml`, or it fails with `Cannot change number of threads`.
+
+### Manually installed aligners
+
+Every tool path in the configs accepts either a bare executable name (looked up on `PATH`) or an explicit file path:
+
+```yaml
+aligners:
+    Muscle5:
+        path: /opt/tools/muscle5.1.linux_intel64   # instead of `muscle`
 ```
 
----
+The ensemble workflow checks all configured aligners before it starts and reports any that are missing.
 
-### b) Library on Conda (recommended)
+### Tests
 
-If you prefer a reproducible environment, use the provided `environment.yml` file:
-
-```bash
-conda env create -f environment.yml
-conda activate ensemblify
+```shell
+pixi run test
 ```
 
-Then install the package itself:
+The test suite checks the installation (package, AlDiScore, Pythia, all binaries) and runs both workflows on the bundled demo data.
 
-```bash
-pip install .
+## Quickstart
+
+The default configuration runs on two small datasets in `demo/data/demo/` and writes to `results/`. `protein` holds 14 related protein sequences (from the AlDiScore demo), and `dna` holds 12 synthetic DNA sequences with substitutions and indels.
+
+```shell
+pixi install -e muscle3        # Muscle3 environment, see above
+pixi run ensemble -c 8         # step 1: generate the MSA ensembles
+pixi run score -c 8            # step 2: compute difficulty scores
 ```
 
+`pixi run <task>` passes extra arguments on to Snakemake (`-c 8` sets the number of cores). For long runs, detach and log to a file:
 
----
-
-## Recommended usage
-
-### 0. Edit Configuration files
-
-#### `general.yaml`
-
-Specify the location of your datasets and working directories.
-
-The workflow expects input sequences organized as:
-
-```text
-work_dir/
-└── database/
-    └── dataset/
-        └── sequences.fasta
+```shell
+nohup pixi run ensemble -c 40 > stdout_ensemble.log 2>&1 &
 ```
 
-Example:
+## Configuration
+
+All configuration lives in `configs/`.
+
+### `general.yaml`
+
+Input and output locations. Input sequences must be organized as `{input}/{source}/{dataset}/sequences.fasta`:
 
 ```text
 data/
-└── ox/
-    └── 104s10/
+└── ox/                  # source
+    └── 104s10/          # dataset
         └── sequences.fasta
 ```
 
-so the `general.yaml` file would look like: 
 ```yaml
 general:
-
-  input: path/to/data/
-  output: path/to/data/
+  input: path/to/data      # relative paths resolve against the repository root
+  output: path/to/results  # may be the same as `input`
   sources: ["ox"]
-
-  raxml: "/path/to/raxml-ng"
+  raxml: raxml-ng          # or an explicit path
 ```
----
 
-#### `aligners.yaml`
+### `aligners.yaml`
 
-Provide the paths to installed alignment software.
-
-Example `aligners.yaml` for `ClustalO`:
+How each aligner is called: executable `path`, command template `cmd`, and `threads`:
 
 ```yaml
 aligners:
     ClustalO:
-        path: /path/to/miniconda3/envs/ensemblify/bin/clustalo
+        path: clustalo
         cmd: "{aligner} -i {input} -o {output} -v --force {options} --threads={threads}"
-        threads: 8 
+        threads: 8
 ```
----
 
-#### `ensemble.yaml`
+Placeholders: `{aligner}`, `{input}`, `{output}`, `{options}`, `{threads}`. Templates without `{output}` (MAFFT) write the alignment to stdout.
 
-You can modify the current settings:
+### `ensemble.yaml`
 
-- Alignment methods to include
-- Number of threads per aligner
-- Parameters for each aligner
-
-Example of `ClustalO` parameters in `ensemble.yaml`: 
+Which aligner configurations make up the ensemble. A list value creates one run per value, and the runs span the Cartesian product of all list-valued parameters. `~` is a flag without a value.
 
 ```yaml
 ensemble:
@@ -137,105 +132,58 @@ ensemble:
     params:
       "--iterations": 6
       "--max-guidetree-iterations": [1, 2, 3, 4]
-      "--max-hmm-iterations": [1, 2]
+      "--max-hmm-iterations": [1, 2]    # -> 4 x 2 = 8 alignments
 ```
 
----
+`type: "Muscle5"` uses Muscle5's built-in ensemble mode (`-stratified`, `-replicates`) instead of parameter variants.
 
-### 1. Generate an MSA ensemble
+## Outputs
 
-Run the ensemble generation workflow with snakemake:
-
-```bash
-snakemake -s workflow/ensemble_bench.smk \
-    -c 40 \
-    --verbose \
-    --latency-wait 60 \
-    --printshellcmds \
-    --keep-going \
-    > stdout_ensemble.log 2>&1 & disown
-```
-
-This step generates multiple alignments from different aligners and parameterizations.
-
-After running the ensemble workflow, the output directory will look similar to:
+After step 1, each dataset directory contains one folder per ensemble member plus the combined `ensemble/` folder:
 
 ```text
-work_dir/
-└── database/
-    └── dataset/
+results/
+└── demo/
+    └── protein/
         ├── ClustalO/
         │   ├── done
         │   ├── ensemble.log
         │   └── msa.[0-7].fasta
-        │
         ├── MAFFT_FFT-NS-2/
-        │   └── msa.[0-7].fasta
-        │
         ├── MAFFT_G-INS-i/
-        │   └── msa.[0-7].fasta
-        │
         ├── MAFFT_L-INS-i/
-        │   └── msa.[0-7].fasta
-        │
         ├── Muscle3/
-        │   └── msa.[0-7].fasta
-        │
         ├── Muscle5/
-        │   └── msa.[0-7].fasta
-        │
-        ├── ensemble/
-        │   ├── ClustalO.[0-7].fasta
-        │   ├── MAFFT_FFT-NS-2.[0-7].fasta
-        │   ├── MAFFT_G-INS-i.[0-7].fasta
-        │   ├── MAFFT_L-INS-i.[0-7].fasta
-        │   ├── Muscle3.[0-7].fasta
-        │   └── Muscle5.[0-7].fasta
-        │
-        ├── sequences.fasta
-        └── stats.parquet
+        └── ensemble/
+            ├── ClustalO.[0-7].fasta
+            ├── MAFFT_FFT-NS-2.[0-7].fasta
+            └── ...
 ```
 
----
+Step 2 writes per-dataset scores to `results/{source}/{dataset}/stats.parquet` and the combined scores to `results/{source}/stats.parquet`. Each row holds descriptive statistics (mean, std, min, quartiles, max) for one method (`dpos`, `pythia`, and `dpos_ref` if a `reference.fasta` exists next to `sequences.fasta`).
 
-### 2. Compute MSA difficulty scores
+To convert a Parquet file to CSV:
 
-Run the scoring workflow with snakemake:
-
-```bash
-snakemake -s workflow/scoring_bench.smk \
-    -c 20 \
-    --verbose \
-    --latency-wait 60 \
-    --printshellcmds \
-    --keep-going \
-    > stdout_scoring.log 2>&1 & disown
+```shell
+pixi run parquet-tools csv results/demo/stats.parquet > results/demo/stats.csv
 ```
 
-This computes pairwise positional dispersion (`d_pos`) across alignments in the ensemble to estimate alignment difficulty. 
-The calculated alignment difficulty per database is stored in the `stats.parquet` file
+## Runtime benchmarks
 
-```
-work_dir/database/dataset/stats.parquet
-```
+The `*_runtime` workflows do the same work as the regular ones and record wall-clock and CPU time per job in `benchmark.json` and `scoring_benchmark.json` files:
 
-To convert the .parquet file into a .csv file you can
-
-```
-# Install parquet-tools
-pip install parquet-tools
-
-# convert to csv
-parquet-tools csv work_dir/database/dataset/stats.parquet > work_dir/database/dataset/stats.csv
+```shell
+pixi run ensemble-runtime -c 8
+pixi run score-runtime -c 8
 ```
 
+To compile the JSON files into Parquet tables in the output directory:
 
----
+```shell
+pixi run python runtime_scripts/compile_ensemble_runtime.py
+pixi run python runtime_scripts/compile_scoring_runtime.py
+```
 
-### Notes
+## License
 
-- Make sure all external alignment tools are installed separately and configured in `aligners.yaml`
-- Snakemake is required to run workflows
-- Python ≥ 3.9 recommended
-
----
+GPL-3.0-or-later. See [LICENSE](LICENSE).
